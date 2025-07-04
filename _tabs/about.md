@@ -9,8 +9,9 @@ order: 4
 
 > Vulnerability Researcher
 {: .prompt-tip }
-Passionate about Android/Linux security, reverse engineering, and exploit development.  
+Passionate about Android/Linux security, Reverse Engineering, and Exploit Development.  
 
+While studying, I often take notes to better understand things. Now, I’ve decided to turn those notes into blog posts to share my knowledge and hopefully help others in the community.
 
 ## Technical Skills  
 
