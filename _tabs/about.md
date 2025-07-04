@@ -38,5 +38,5 @@ Passionate about Android/Linux security, reverse engineering, and exploit develo
 | **Emulators**   | QEMU, Unicorn, Qiling                                   |
 
 Follow me on:
-- [Twitter]({{ site.author.social.twitter }})
-- [GitHub]({{ site.github }})
+- [GitHub](https://github.com/{{ site.github.username }})
+
