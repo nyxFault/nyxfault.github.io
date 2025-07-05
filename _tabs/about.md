@@ -40,4 +40,20 @@ While studying, I often take notes to better understand things. Now, I’ve deci
 
 Follow me on:
 - [GitHub](https://github.com/{{ site.github.username }})
+- [GitHub](https://x.com/{{ site.twitter.username }})
 
+<script src="https://giscus.app/client.js"
+        data-repo="nyxFault/nyxfault.github.io"
+        data-repo-id="R_kgDOPGpn2g"
+        data-category="General"
+        data-category-id="DIC_kwDOPGpn2s4Csf_o"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
