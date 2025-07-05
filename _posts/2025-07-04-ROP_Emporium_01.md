@@ -118,7 +118,7 @@ Before we dive deeper, let's first understand what **function prologue** and **e
 
 The **function prologue** is the set of assembly instructions at the start of a function that prepares the **stack frame** for that function’s execution.
 
-```c
+```txt
 push rbp       ; Save caller’s RBP
 mov rbp, rsp   ; RBP points to the current stack frame
 sub  rsp, 0x20      ; Reserve 32 bytes for local variables
@@ -128,7 +128,7 @@ sub  rsp, 0x20      ; Reserve 32 bytes for local variables
 
 The **epilogue** cleans up the stack before returning from the function.
 
-```c
+```txt
 mov rsp, rbp     ; Reset stack pointer
 pop rbp          ; Restore caller's frame pointer
 ret              ; Pop return address from stack and jump there
@@ -136,7 +136,7 @@ ret              ; Pop return address from stack and jump there
 
 You will find something like :
 
-```c
+```txt
 leave   ; shorthand for `mov rsp, rbp` + `pop rbp`
 ret     ; Return to caller
 ```
