@@ -35,7 +35,7 @@ While studying, I often take notes to better understand things. Now, I’ve deci
 | **Architectures** | x86, x64, ARM, AARCH64, MIPS                          |
 | **Debuggers**   | GDB, WinDbg, lldb                                       |
 | **RE Tools**    | IDA/Ghidra, Binary Ninja, Radare2/Cutter                |
-| **Fuzzers**     | AFL++, honggfuzz, libFuzzer, boofuzz                    |
+| **Fuzzers**     | AFL++, honggfuzz, libfuzzer, boofuzz                    |
 | **Emulators**   | QEMU, Unicorn, Qiling                                   |
 
 Follow me on:
