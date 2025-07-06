@@ -5,7 +5,7 @@ tags: [x86, x86_64, ARMv5, ARM, MIPS, fluff]
 
 ---
 
-n this challenge, we face a twist on the classic arbitrary-write scenario from the **write4** challenge. However, this time, we **don’t have easy-to-use `mov [addr], reg` gadgets**.
+In this challenge, we face a twist on the classic arbitrary-write scenario from the **write4** challenge. However, this time, we **don’t have easy-to-use `mov [addr], reg` gadgets**.
 
 This time we will find a new function `questionableGadgets`. This must be added to give some hint. Let's disassemble it in **GDB**
 
