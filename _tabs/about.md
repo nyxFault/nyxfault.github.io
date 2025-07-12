@@ -16,11 +16,13 @@ While studying, I often take notes to better understand things. Now, I’ve deci
 ## Technical Skills  
 
 ### 📱 **Android Security**  
+
 - App Pentesting & Secure Development  
 - Native Library Fuzzing/Exploitation  
 - Malware Analysis & Reverse Engineering  
 
 ### 🐧 **Linux/Embedded Systems**  
+
 - Kernel Development & Driver Programming  
 - x86/ARM/AARCH64 Exploit Development  
 - Rootkit Development & Analysis  
