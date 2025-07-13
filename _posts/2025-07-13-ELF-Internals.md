@@ -818,6 +818,16 @@ sudo ldconfig  # Update linker cache
 
 ## Library Hooking in Linux: Intercepting & Modifying Functions
 
+Use the following C file -
+
+```c
+#include <stdio.h>
+
+int main() {
+    puts("Hello!");
+    return 0;
+}
+```
 
 ### Method 1: `LD_PRELOAD` (Simple Function Overriding)
 
@@ -859,7 +869,12 @@ gcc -shared -fPIC hook_puts.c -o libhookputs.so -ldl
 Run a program with the Hook
 
 ```bash
-LD_PRELOAD=./libhookputs.so ./binary
+$ LD_PRELOAD=./libhookputs.so  ./puts 
+original_puts @ 0x742921a80e50
+[+] Hooked! Original message:
+Hello!
+Hooked!
+
 ```
 
 
@@ -936,6 +951,19 @@ Interceptor.attach(Module.findExportByName("libc.so.6", "puts"), {
     }
 });
 ```
+**Start new process and inject**
+
+```bash
+$ frida ./puts -l hook_puts.js
+#...
+Spawned `./puts`. Resuming main thread!                                 
+Hello!
+[Hooked! Original message: Hello!]
+[Local::puts ]-> Process terminated
+[Local::puts ]->
+
+Thank you for using Frida!
+```
 
 **Inject into a Running Process**
 
@@ -943,7 +971,6 @@ Interceptor.attach(Module.findExportByName("libc.so.6", "puts"), {
 frida -n "process_name" -l hook_puts.js
 frida -p <PID> -l hook_puts.js
 ```
-
 
 **Advantages**
 
