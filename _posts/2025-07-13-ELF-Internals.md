@@ -1,0 +1,1187 @@
+---
+title: "ELF Internals"
+categories: [Linux, Internals]
+tags: [linux, elf, hooking, forensics]
+---
+
+In the world of modern operating systems, especially Unix and Linux, the binary file format is fundamental to how programs are executed, how libraries are shared, and how debugging and performance analysis are done. One format that plays a critical role in this ecosystem is ELF (Executable and Linkable Format). If you’ve ever wondered how your Linux system loads and runs executables or how dynamic libraries work, understanding the internals of ELF can give you valuable insights into system performance and architecture.
+
+In this blog, we will dive into the inner workings of ELF files—breaking down how they are structured, how they function in the system, and why they are essential for anyone interested in systems programming or low-level Linux operations.
+
+## Introduction to ELF
+
+ELF (Executable and Linkable Format) is the standard binary file format used on Unix and Unix-like systems (Linux, BSD, etc.) for executables, object code, shared libraries, and core dumps. It replaced older formats like a.out and COFF.
+
+## ELF File Structure
+
+An ELF file consists of the following components:
+
+### 1. ELF Header
+
+Located at the start of the file, it provides a roadmap to the rest of the file contents.
+
+Key fields in the ELF header:
+
+- `e_ident` - Magic number and other identification info
+- `e_type` - Identifies object file type (executable, shared object, etc.)
+- `e_machine` - Specifies required architecture
+- `e_version` - ELF version
+- `e_entry` - Entry point virtual address
+- `e_phoff` - Program header table offset
+- `e_shoff` - Section header table offset
+- `e_flags` - Processor-specific flags
+- `e_ehsize` - ELF header size
+- `e_phentsize` - Size of program header entry
+- `e_phnum` - Number of program header entries
+- `e_shentsize` - Size of section header entry
+- `e_shnum` - Number of section header entries
+- `e_shstrndx` - Section header string table index
+
+### 2. Program Header Table (Optional)
+
+An array of program headers describing segments, which are used for program execution. Each entry contains:
+
+- `p_type` - Segment type (loadable, dynamic, etc.)
+- `p_offset` - File offset of segment
+- `p_vaddr` - Virtual address in memory
+- `p_paddr` - Physical address (if relevant)
+- `p_filesz` - Size in file
+- `p_memsz` - Size in memory
+- `p_flags` - Permission flags (read, write, execute)
+- `p_align` - Alignment requirements
+
+
+### 3. Section Header Table
+
+An array of section headers describing all sections in the file. Each entry contains:
+
+- `sh_name` - Section name (index into string table)    
+- `sh_type` - Section type (progbits, nobits, etc.)
+- `sh_flags` - Section attributes (write, alloc, exec)
+- `sh_addr` - Virtual address in memory
+- `sh_offset` - File offset
+- `sh_size` - Section size
+- `sh_link` - Link to another section
+- `sh_info` - Additional section information
+- `sh_addralign` - Address alignment    
+- `sh_entsize` - Entry size if section contains table
+
+
+### 4. Sections
+
+Actual data referred to by section headers. Common sections include:
+
+- `.text` - Executable instructions
+- `.data` - Initialized data
+- `.bss` - Uninitialized data (no space in file)
+- `.rodata` - Read-only data
+- `.symtab` - Symbol table
+- `.strtab` - String table
+- `.shstrtab` - Section header string table
+- `.rel.*` - Relocation information
+- `.dynamic` - Dynamic linking information
+- `.got` - Global Offset Table
+- `.plt` - Procedure Linkage Table
+- `.interp` - Path to dynamic linker
+
+Here’s an insightful image that explains the structure of an ELF file, sourced from the Corkami project:
+
+![ELF 101](https://raw.githubusercontent.com/corkami/pics/669facbb0b6a977f959ae6473b8346e98cf23f53/binary/elf101/pro.svg)
+
+**Source**
+[corkami](https://github.com/corkami/pics/tree/master/binary/elf101)
+
+
+## ELF Types
+
+- **Executable (`ET_EXEC`)**: Fully linked, runnable binary.    
+- **Shared Object (`ET_DYN`)**: Libraries (e.g., `.so`).
+- **Core Dump (`ET_CORE`)**: Memory snapshot for debugging.
+- **Relocatable (`ET_REL`)**: Object files; used as input to linker.
+
+
+
+
+![ELF](https://camo.githubusercontent.com/00cd4e64df02caf11e9c7c8f67a4d7e9470ea03c244e6d5bce8444a674b9143c/68747470733a2f2f692e696d6775722e636f6d2f4169394f714f422e706e67)
+
+
+```bash
+man elf
+```
+## ELF Components
+
+An ELF file is divided into:
+
+- **ELF Header**
+- **Program Header Table**
+- **Section Header Table**
+- **Segments**
+- **Sections**
+
+> Info
+{: .prompt-info }
+I am using [malcat](https://malcat.fr/) for understanding ELF. You too can give it a try!
+
+Use the following `hello.c`:
+
+```c
+#include <stdio.h>
+
+int main() {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+```bash
+gcc hello.c -o hello64
+gcc hello.c -m32 -o hello32
+```
+
+Now you have an ELF executable.
+
+```bash
+$ file hello32
+hello32: ELF 32-bit LSB pie executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2
+
+$ file hello64
+hello64: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2
+```
+
+### ELF Header
+
+The ELF header is a road map that describes the entire structure of the file. It's always located at the very beginning (offset 0) of the ELF file.
+
+```bash
+readelf -h binary
+```
+
+**Detailed Structure (64-bit ELF)**
+
+```c
+#define EI_NIDENT 16
+
+typedef struct {
+    unsigned char e_ident[EI_NIDENT];  /* Magic number and info */
+    Elf64_Half    e_type;              /* Object file type */
+    Elf64_Half    e_machine;           /* Architecture */
+    Elf64_Word    e_version;           /* Object file version */
+    Elf64_Addr    e_entry;             /* Entry point virtual address */
+    Elf64_Off     e_phoff;             /* Program header table file offset */
+    Elf64_Off     e_shoff;             /* Section header table file offset */
+    Elf64_Word    e_flags;             /* Processor-specific flags */
+    Elf64_Half    e_ehsize;            /* ELF header size in bytes */
+    Elf64_Half    e_phentsize;         /* Program header table entry size */
+    Elf64_Half    e_phnum;             /* Program header table entry count */
+    Elf64_Half    e_shentsize;         /* Section header table entry size */
+    Elf64_Half    e_shnum;             /* Section header table entry count */
+    Elf64_Half    e_shstrndx;          /* Section header string table index */
+} Elf64_Ehdr;
+```
+
+To get size:
+```bash
+$ pahole Elf64_Ehdr
+typedef struct elf64_hdr Elf64_Ehdr;
+$ pahole elf64_hdr
+# ...
+```
+
+### Program Header Table
+
+In ELF (Executable and Linkable Format), the terms **"program header"** and **"segment header"** are often used interchangeably, but they refer to the same data structure with different perspectives.
+
+
+- **Program Header**:
+
+    - Refers to the **on-disk** metadata entry in the ELF file's **Program Header Table** (located at `e_phoff` in the ELF header).
+    - Describes how parts of the file should be **mapped into memory** by the OS loader. Tells the **OS loader** how to create the process image.
+    - Contains **segments**: groups of sections combined for runtime use.
+    - Defined in the ELF specification as `Elf32_Phdr` or `Elf64_Phdr`.
+    - `readelf [-l|--program-headers|--segments] ./binary`
+    
+- **Segment Header**:
+    
+    - Refers to the **in-memory** representation of the loaded segment.
+    - After loading, the OS creates **process segments** (e.g., `LOAD`, `DYNAMIC`) based on program headers.
+    - The term "segment" is used in runtime contexts (e.g., `pmap`, `/proc/<pid>/maps` in Linux).
+
+Each program header (`PT_LOAD`, `PT_DYNAMIC`, etc.) typically corresponds to **one memory segment** when loaded.
+
+
+Many **sections** are grouped into **segments**. For example:
+
+```txt
+Segment LOAD #1:
+  Includes: .text, .rodata, .interp
+  Permissions: Read + Execute
+
+Segment LOAD #2:
+  Includes: .data, .bss
+  Permissions: Read + Write
+```
+
+```bash
+readelf -l hello64   # to see segments
+readelf -S hello64   # to see sections
+readelf -lS hello64 # View both
+```
+
+In Short,
+- **Sections** = used during linking (e.g., `.text`, `.data`, `.bss`)
+- **Segments** = used during loading → groups of sections
+
+
+![Segments](/assets/img/segments.png)
+
+
+![ELF disk vs memory](https://149520725.v2.pressablecdn.com/wp-content/uploads/2025/03/Image5-3.png)
+
+**Source**
+[intezer.com](https://intezer.com/blog/executable-and-linkable-format-101-part-1-sections-and-segments/)
+
+### Example Sections:
+
+- `.text`: code
+- `.data`: initialized variables
+- `.bss`: uninitialized variables
+- `.rodata`: constants
+- `.symtab`, `.strtab`: symbol and string tables
+
+### Example Segments:
+
+- `LOAD`: actual code/data to map into memory
+- `INTERP`: path to dynamic linker
+- `DYNAMIC`: info for dynamic linking
+- `GNU_STACK`: stack permissions
+
+**Exceptions**:
+    
+- Some program headers (e.g., `PT_PHDR`, `PT_NOTE`) don’t always map to dedicated segments.
+- Segments can be split further by the OS (e.g., for alignment or security).
+
+
+```c
+typedef struct {
+    uint32_t   p_type;
+    Elf32_Off  p_offset;
+    Elf32_Addr p_vaddr;
+    Elf32_Addr p_paddr;
+    uint32_t   p_filesz;
+    uint32_t   p_memsz;
+    uint32_t   p_flags;
+    uint32_t   p_align;
+} Elf32_Phdr;
+
+typedef struct {
+    uint32_t   p_type;
+    uint32_t   p_flags;
+    Elf64_Off  p_offset;
+    Elf64_Addr p_vaddr;
+    Elf64_Addr p_paddr;
+    uint64_t   p_filesz;
+    uint64_t   p_memsz;
+    uint64_t   p_align;
+} Elf64_Phdr;
+```
+
+
+
+### Section Header Table
+
+The **Section Header Table** is a critical part of the ELF (Executable and Linkable Format) file that describes all the **sections** contained in the binary. Unlike **Program Headers** (which define **segments** for execution), **Section Headers** are primarily used by linkers, debuggers, and static analysis tools.
+
+
+**Purpose of the Section Header Table**
+
+- Contains metadata about **all sections** in the ELF file.    
+- Used by:
+    
+    - **Linkers** (`ld`) to combine object files.
+    - **Debuggers** (`gdb`) to map addresses to symbols.
+    - **Static analyzers** (`readelf`, `objdump`) to inspect binaries.
+
+- **Not required at runtime** (some stripped binaries remove it).
+
+
+**Location & Structure**
+
+- **Located at** `e_shoff` (ELF header field).    
+- **Entry size** = `e_shentsize` (usually **64 bytes** for 64-bit ELF).
+- **Number of entries** = `e_shnum` (if > `0xFFFF`, stored in `sh_size` of the first entry).
+- **String table index** = `e_shstrndx` (points to `.shstrtab` section).
+
+```c
+typedef struct {
+    Elf64_Word   sh_name;      // Section name (index in .shstrtab)
+    Elf64_Word   sh_type;      // Section type (e.g., PROGBITS, SYMTAB)
+    Elf64_Xword  sh_flags;     // Section attributes (e.g., ALLOC, WRITE)
+    Elf64_Addr   sh_addr;      // Virtual address (0 if not loaded)
+    Elf64_Off    sh_offset;    // File offset of section data
+    Elf64_Xword  sh_size;      // Section size in bytes
+    Elf64_Word   sh_link;      // Extra info (depends on type)
+    Elf64_Word   sh_info;      // Extra info (depends on type)
+    Elf64_Xword  sh_addralign; // Alignment constraints (e.g., 16)
+    Elf64_Xword  sh_entsize;   // Fixed-size entry tables (e.g., symbol size)
+} Elf64_Shdr;
+```
+
+### **Common Section Types (`sh_type`)**
+
+| Type (Name)        | Value | Description                               |
+| ------------------ | ----- | ----------------------------------------- |
+| **`SHT_NULL`**     | 0     | Inactive entry.                           |
+| **`SHT_PROGBITS`** | 1     | Executable code, data (`.text`, `.data`). |
+| **`SHT_SYMTAB`**   | 2     | Symbol table (`.symtab`).                 |
+| **`SHT_STRTAB`**   | 3     | String table (`.strtab`, `.shstrtab`).    |
+| **`SHT_RELA`**     | 4     | Relocation entries (`.rela.text`).        |
+| **`SHT_HASH`**     | 5     | Symbol hash table.                        |
+| **`SHT_DYNAMIC`**  | 6     | Dynamic linking info (`.dynamic`).        |
+| **`SHT_NOTE`**     | 7     | Notes section (`.note.ABI-tag`).          |
+| **`SHT_NOBITS`**   | 8     | Zero-initialized data (`.bss`).           |
+| **`SHT_DYNSYM`**   | 11    | Dynamic symbol table (`.dynsym`).         |
+
+### **Important Sections & Their Roles**
+
+|Section|Type|Description|
+|---|---|---|
+|**`.text`**|`SHT_PROGBITS`|Executable code.|
+|**`.data`**|`SHT_PROGBITS`|Initialized writable data.|
+|**`.rodata`**|`SHT_PROGBITS`|Read-only data (strings, constants).|
+|**`.bss`**|`SHT_NOBITS`|Zero-initialized data (occupies no file space).|
+|**`.symtab`**|`SHT_SYMTAB`|Symbol table (debugging).|
+|**`.dynsym`**|`SHT_DYNSYM`|Dynamic symbol table (runtime linking).|
+|**`.strtab`**|`SHT_STRTAB`|String table for `.symtab`.|
+|**`.shstrtab`**|`SHT_STRTAB`|Section name string table.|
+|**`.dynamic`**|`SHT_DYNAMIC`|Dynamic linking info.|
+|**`.plt`**|`SHT_PROGBITS`|Procedure Linkage Table.|
+|**`.got`**|`SHT_PROGBITS`|Global Offset Table.|
+
+```bash
+readelf [-S|--section-headers|--sections] ./binary
+```
+
+
+**Relationship with Program Headers**
+
+- **Program Headers** group **sections** into **segments** for execution.    
+    - Example: `.text` + `.rodata` → `PT_LOAD` (read-only code segment).
+        
+- **Sections** are for **static analysis**, **segments** for **runtime execution**.
+
+
+
+### Segments
+
+Segments are the **runtime execution units** of an ELF file. Unlike **sections** (which are used for linking and debugging), segments define how parts of the ELF file should be **loaded into memory** by the OS when the program runs.
+
+### **What is a Segment?**
+
+- A **contiguous block** of memory with specific permissions (`R/W/X`).
+- Created from **Program Header entries** (`PT_LOAD`, `PT_DYNAMIC`, etc.).
+- The OS loader maps segments into **virtual memory** at runtime.
+- Segments **group multiple sections** (e.g., `.text`, `.rodata` → `READ-ONLY` segment).
+
+### **Types of Segments (`p_type` in Program Headers)**
+
+|Type (Name)|Value|Description|
+|---|---|---|
+|**`PT_NULL`**|0|Unused entry (ignored).|
+|**`PT_LOAD`**|1|Loadable segment (code/data).|
+|**`PT_DYNAMIC`**|2|Dynamic linking info (`.dynamic` section).|
+|**`PT_INTERP`**|3|Path to dynamic linker (e.g., `/lib64/ld-linux-x86-64.so.2`).|
+|**`PT_NOTE`**|4|Auxiliary info (ABI version, build ID).|
+|**`PT_PHDR`**|6|Location of the Program Header Table itself.|
+|**`PT_TLS`**|7|Thread-Local Storage (TLS) data.|
+|**`PT_GNU_STACK`**|0x6474e552|Stack permissions (executable/non-executable).|
+#### How Segments Are Created
+
+1. **Linker (`ld`) groups sections into segments**:
+    
+    - `.text`, `.rodata` → `READ-ONLY` `PT_LOAD` segment.
+    - `.data`, `.bss` → `READ-WRITE` `PT_LOAD` segment.
+    
+2. **OS loader (`execve` syscall)**:
+    
+    - Reads `PT_LOAD` segments into memory.
+    - Sets up `PT_DYNAMIC` for dynamic linking.
+    - Initializes `PT_TLS` for thread-local storage.
+
+
+After running a program:
+```bash
+# View memory mapping of a running process
+cat /proc/self/maps
+```
+
+*Example Output*
+
+```txt
+00400000-0041c000 r-xp 00000000 08:01  /bin/ls    # PT_LOAD (R-X)
+0061d000-0061e000 r--p 0001d000 08:01  /bin/ls    # PT_LOAD (R--)
+0061e000-0061f000 rw-p 0001e000 08:01  /bin/ls    # PT_LOAD (RW-)
+```
+
+- Each line corresponds to a **loaded segment**.
+- Permissions (`r-x`, `rw-`) match `p_flags` from Program Headers.
+
+### **Special Segments**
+
+#### **A. `PT_INTERP` (Interpreter Segment)**
+
+- Contains the path to the **dynamic linker** (e.g., `/lib64/ld-linux-x86-64.so.2`).    
+- Required for dynamically linked binaries.
+
+
+#### **B. `PT_DYNAMIC` (Dynamic Segment)**
+
+- Points to the `.dynamic` section.
+- Contains tags like:
+    
+    - `DT_NEEDED` (required shared libraries).
+    - `DT_SYMTAB` (dynamic symbol table).
+    - `DT_INIT`/`DT_FINI` (initialization/finalization functions).
+
+
+#### **C. `PT_GNU_STACK` (Stack Permissions)**
+
+- Controls whether the stack is **executable** (rare) or **non-executable** (default).    
+- Modern systems enforce `NX` (No-Execute) for security.
+
+#### **D. `PT_TLS` (Thread-Local Storage)**
+
+- Used for variables marked with `__thread` in C/C++.
+- Each thread gets its own copy of TLS data.
+
+
+
+### **How the OS Loads Segments**
+
+1. **`execve` syscall** reads the ELF header.
+2. **Program Headers** are processed:
+    
+    - `PT_LOAD` segments are `mmap`-ed into memory.
+    - `PT_INTERP` triggers the dynamic linker.
+    - `PT_DYNAMIC` provides linking metadata.
+        
+3. **Permissions** are enforced (e.g., `.text` is `r-x`).
+4. **Execution begins** at `e_entry` (usually `.text`).
+
+In Short,
+- **Segments** are **runtime memory units** defined by Program Headers.
+- **`PT_LOAD`** segments contain code/data loaded into memory.
+- **`PT_DYNAMIC`**, **`PT_INTERP`**, **`PT_TLS`** handle dynamic linking and threading.
+- **View segments** with `readelf -l` or `/proc/<pid>/maps`.
+- **Sections ≠ Segments**: Sections are for linking, segments for execution.
+
+
+### Sections
+
+An ELF **section** is a well-defined piece of the binary used during **compilation, linking, debugging, and analysis**. Each section contains **specific types of data or code**.
+
+```bash
+readelf -S hello # Sections
+```
+
+**Common ELF Sections**
+
+| Section Name      | Type      | Purpose                                                                 |
+|-------------------|-----------|-------------------------------------------------------------------------|
+| `.text`           | PROGBITS  | Contains executable machine code (your program logic)                  |
+| `.data`           | PROGBITS  | Initialized global/static variables                                    |
+| `.bss`            | NOBITS    | Uninitialized global/static variables (zeroed by loader)               |
+| `.rodata`         | PROGBITS  | Read-only constants like strings or const variables                    |
+| `.symtab`         | SYMTAB    | Symbol table (used by debugger, linker)                                |
+| `.strtab`         | STRTAB    | String table for symbol names                                          |
+| `.shstrtab`       | STRTAB    | String table for section names                                         |
+| `.rel.text` / `.rela.text` | RELA or REL | Relocation info for `.text`                                   |
+| `.comment`        | PROGBITS  | Compiler version info                                                  |
+| `.debug_*`        | PROGBITS  | Debugging info (if compiled with `-g`)                                 |
+
+Each section has an entry in the **Section Header Table**, containing:
+
+- Name (string offset into `.shstrtab`)
+- Type (e.g., `PROGBITS`, `NOBITS`)
+- Virtual address (if loaded into memory)
+- Offset in the file
+- Size
+- Flags (e.g., `AX`, `WA` for readable/writable/executable)
+
+
+**ELF Reader**
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <elf.h>
+
+void print_elf_header(Elf64_Ehdr *ehdr) {
+    printf("== ELF Header ==\n");
+    printf("Magic: %.4s\n", ehdr->e_ident);
+    printf("Class: %s\n", ehdr->e_ident[EI_CLASS] == ELFCLASS64 ? "ELF64" : "ELF32");
+    printf("Entry point: 0x%lx\n", ehdr->e_entry);
+    printf("Program Header Offset: 0x%lx\n", ehdr->e_phoff);
+    printf("Section Header Offset: 0x%lx\n", ehdr->e_shoff);
+    printf("Number of Program Headers: %d\n", ehdr->e_phnum);
+    printf("Number of Section Headers: %d\n", ehdr->e_shnum);
+    printf("Size of each Program Header: %d\n", ehdr->e_phentsize);
+    printf("Size of each Section Header: %d\n", ehdr->e_shentsize);
+}
+
+void print_program_headers(FILE *fp, Elf64_Ehdr *ehdr) {
+    Elf64_Phdr phdr;
+    printf("\n== Program Headers ==\n");
+    fseek(fp, ehdr->e_phoff, SEEK_SET);
+
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        fread(&phdr, 1, sizeof(phdr), fp);
+        printf("Type: %d Offset: 0x%lx Vaddr: 0x%lx Paddr: 0x%lx Filesz: 0x%lx Memsz: 0x%lx Flags: 0x%x Align: 0x%lx\n",
+               phdr.p_type, phdr.p_offset, phdr.p_vaddr, phdr.p_paddr,
+               phdr.p_filesz, phdr.p_memsz, phdr.p_flags, phdr.p_align);
+    }
+}
+
+void print_section_headers(FILE *fp, Elf64_Ehdr *ehdr) {
+    Elf64_Shdr shdr;
+    char *shstrtab = NULL;
+
+    // Get section header string table first
+    fseek(fp, ehdr->e_shoff + (ehdr->e_shstrndx * sizeof(Elf64_Shdr)), SEEK_SET);
+    fread(&shdr, 1, sizeof(shdr), fp);
+
+    shstrtab = malloc(shdr.sh_size);
+    fseek(fp, shdr.sh_offset, SEEK_SET);
+    fread(shstrtab, 1, shdr.sh_size, fp);
+
+    printf("\n== Section Headers ==\n");
+    fseek(fp, ehdr->e_shoff, SEEK_SET);
+    for (int i = 0; i < ehdr->e_shnum; i++) {
+        fread(&shdr, 1, sizeof(shdr), fp);
+        printf("[%2d] Name: %-20s Type: 0x%x Addr: 0x%lx Offset: 0x%lx Size: 0x%lx\n",
+               i,
+               &shstrtab[shdr.sh_name],
+               shdr.sh_type,
+               shdr.sh_addr,
+               shdr.sh_offset,
+               shdr.sh_size);
+    }
+
+    free(shstrtab);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Usage: %s <ELF file>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *fp = fopen(argv[1], "rb");
+    if (!fp) {
+        perror("fopen");
+        return 1;
+    }
+
+    Elf64_Ehdr ehdr;
+    fread(&ehdr, 1, sizeof(ehdr), fp);
+
+    if (memcmp(ehdr.e_ident, ELFMAG, SELFMAG) != 0) {
+        printf("Not a valid ELF file.\n");
+        fclose(fp);
+        return 1;
+    }
+
+    print_elf_header(&ehdr);
+    print_program_headers(fp, &ehdr);
+    print_section_headers(fp, &ehdr);
+
+    fclose(fp);
+    return 0;
+}
+
+```
+
+
+
+**The Linker (`ld`)**
+
+- Combines multiple object files (`.o`) and libraries (`.a`/`.so`) into a **single executable or shared library**.
+- Resolves symbols (functions/variables) across files.
+- Generates the final ELF structure (sections, segments, relocation info).
+
+#### **Types of Linkers on Linux:**
+
+**Static Linker (`ld.bfd` or `ld.gold` or `ld.lld`)**
+
+- Invoked as `ld` (part of **binutils** or **LLVM**).
+- Used at **compile-time** to create executables.
+```bash
+# Example
+gcc main.c -o program  # Uses `ld` internally
+```
+
+**Dynamic Linker (`ld.so`)**
+
+- Also called the **"runtime linker"** or **"loader"** (confusing, but true!).
+- Handles **dynamic linking** at runtime.
+```bash
+# Example
+/lib64/ld-linux-x86-64.so.2 ./program
+```
+
+**The Loader (Linux Kernel + `ld.so`)**
+
+#### **Two-Stage Loading Process:**
+
+1. **Linux Kernel (`execve` syscall)**
+    
+    - Reads the **ELF header** and **Program Headers**.
+    - Maps `PT_LOAD` segments into memory (`.text`, `.data`).
+    - Sets up the stack and heap.
+    - If the binary is **dynamically linked**, it loads the **interpreter** (`PT_INTERP`).
+        
+2. **Dynamic Linker (`ld.so`)**
+    
+    - Runs **before** `main()`.
+    - Loads shared libraries (`DT_NEEDED` entries like `libc.so.6`).
+    - Resolves symbols (e.g., `printf` from `libc`).
+    - Applies relocations (fixes addresses in `.got`, `.plt`).
+    - Transfers control to the program’s entry point (`_start`).
+
+#### **Trace Dynamic Linking**
+
+```bash
+LD_DEBUG=files ./binary
+```
+
+
+### Creating & Linking Libraries in Linux (Static & Dynamic)
+
+**Types of Libraries**
+1. Static
+- Extension : `.a`
+- Linking Time : Compile-Time
+- Faster, no runtime deps but larger in size
+
+2. Dynamic
+- Extension : `.so`
+- Linking Time : Runtime
+- Smaller, shared across apps but needs `.so` at runtime
+
+
+**Creating a Static Library (`libfoo.a`)**
+
+Write a Source Files
+
+```
+// foo.c
+int add(int a, int b) { return a + b; }
+
+// bar.c
+int mul(int a, int b) { return a * b; }
+```
+
+**Compile to `.o` Files**
+
+```bash
+gcc -c foo.c bar.c  # Generates foo.o, bar.o
+```
+
+**Pack into `.a` Archive**
+
+```bash
+ar rcs libfoo.a foo.o bar.o
+```
+
+- `ar`: Archiver tool
+- `rcs`: Replace (`r`), Create (`c`), Index (`s`)
+
+**Verify**
+
+```bash
+ar -t libfoo.a  # List contents
+```
+
+**Linking a Static Library**
+
+Write Main Program
+
+```c
+// main.c
+#include <stdio.h>
+int add(int, int);  // Declare (or use a header)
+int mul(int, int);
+
+int main() {
+    printf("3 + 4 = %d\n", add(3, 4));
+    printf("3 * 4 = %d\n", mul(3, 4));
+    return 0;
+}
+```
+
+**Compile & Link**
+
+```bash
+gcc main.c -L. -lfoo -o main
+# Note: Write file.c before -L. -lfoo...
+```
+
+- `-L.`: Look in current dir for libraries
+- `-lfoo`: Links `libfoo.a`
+
+**Run**
+
+```bash
+./main
+```
+
+
+### Creating a Dynamic Library (`libfoo.so`)
+
+**Compile with `-fPIC`**
+
+```bash
+gcc -c -fPIC foo.c bar.c  # Position-Independent Code
+```
+
+**Create Shared Library**
+
+```bash
+gcc -shared foo.o bar.o -o libfoo.so
+```
+
+`-shared`: Generates `.so` instead of executable
+
+
+**Verify**
+
+```bash
+nm -D libfoo.so  # Check exported symbols
+```
+
+**Linking a Dynamic Library**
+
+Compile Main Program
+
+```bash
+gcc main.c -L. -lfoo -o main_dynamic
+```
+
+**Run (Temporary Path)**
+
+```bash
+LD_LIBRARY_PATH=. ./main_dynamic
+```
+
+`LD_LIBRARY_PATH=.`: Temporarily adds current dir to library search path
+
+
+**Install Permanently**
+
+```bash
+sudo cp libfoo.so /usr/local/lib/
+sudo ldconfig  # Update linker cache
+./main_dynamic  # Now works without LD_LIBRARY_PATH
+```
+
+**Tips**
+
+- **Headers:** Use `.h` files for declarations (best practice).
+- **Versioning:** Append `.so.1`, `.so.1.2` for ABI compatibility. 
+- **Debugging:** Use `ldd ./main_dynamic` to check linked libs.
+
+
+**Commands Cheatsheet**
+
+| Task                     | Command                                              |
+| ------------------------ | ---------------------------------------------------- |
+| **Create static lib**    | `ar rcs libfoo.a foo.o bar.o`                        |
+| **Create dynamic lib**   | `gcc -shared -fPIC foo.o bar.o -o libfoo.so`         |
+| **Link static lib**      | `gcc main.c -L. -lfoo -o main`                       |
+| **Link dynamic lib**     | `gcc main.c -L. -lfoo -o main_dynamic`               |
+| **Set runtime lib path** | `LD_LIBRARY_PATH=. ./main_dynamic`                   |
+| **Install .so globally** | `sudo cp libfoo.so /usr/local/lib/ && sudo ldconfig` |
+| **Check symbols**        | `nm libfoo.a` or `nm -D libfoo.so`                   |
+
+### **Static Linking (`libfoo.a`)**
+
+- **Binary Size:** Larger (library embedded)    
+- **Dependencies:** None (self-contained)
+- **Updates:** Recompile needed
+
+### **Dynamic Linking (`libfoo.so`)**
+
+- **Binary Size:** Smaller (library loaded at runtime)
+- **Dependencies:** Must have `.so` file
+- **Updates:** Replace `.so` without recompiling
+
+
+## Library Hooking in Linux: Intercepting & Modifying Functions
+
+
+### Method 1: `LD_PRELOAD` (Simple Function Overriding)
+
+The easiest way to hook a function is using `LD_PRELOAD`, which loads your library before others, overriding functions.
+
+Create a hook library:
+
+```c
+// hook_puts.c
+#define _GNU_SOURCE  // Needed for RTLD_NEXT
+#include <stdio.h>
+#include <dlfcn.h>   // For dlsym()
+
+// Original function pointer
+static int (*original_puts)(const char *) = NULL;
+
+// Our hooked version
+int puts(const char *str) {
+    // Initialize original_puts if not done yet
+    if (!original_puts) {
+        original_puts = dlsym(RTLD_NEXT, "puts");
+        printf("original_puts @ %p\n", original_puts);
+    }
+
+    // Modify behavior
+    printf("[+] Hooked! Original message:\n%s\n", str);
+    
+    // Call original (optional)
+    return original_puts("Hooked!");
+}
+```
+
+Compile as a Shared Library
+
+```bash
+gcc -shared -fPIC hook_puts.c -o libhookputs.so -ldl
+```
+
+Run a program with the Hook
+
+```bash
+LD_PRELOAD=./libhookputs.so ./binary
+```
+
+
+
+**How It Works**
+
+1. `LD_PRELOAD` forces the dynamic linker to load `libhookputs.so` **before** `libc`.
+2. When `puts()` is called, **our version** runs instead of the original.
+3. `dlsym(RTLD_NEXT, "puts")` gets the original function pointer.
+4. We modify the input/output before optionally calling the original.
+
+
+### Method 2: `ptrace` (Advanced Binary Hooking)
+
+If `LD_PRELOAD` doesn’t work (e.g., for statically linked binaries), use `ptrace` to modify running processes.
+
+
+**Write a `ptrace`-Based Hook**
+
+```c
+// ptrace_hook.c
+#include <stdio.h>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
+#include <sys/user.h>
+
+int main(int argc, char *argv[]) {
+    pid_t target_pid = atoi(argv[1]);
+    struct user_regs_struct regs;
+
+    ptrace(PTRACE_ATTACH, target_pid, NULL, NULL);
+    wait(NULL);
+
+    // Modify `puts()` calls here (advanced)
+    ptrace(PTRACE_DETACH, target_pid, NULL, NULL);
+    return 0;
+}
+```
+
+(Full implementation requires deep knowledge of CPU registers and syscalls.)
+
+Compile & Run
+```bash
+gcc ptrace_hook.c -o ptrace_hook
+./ptrace_hook <PID>
+```
+
+**Limitations**
+
+- Requires root (`sudo`).
+- Complex to implement (must handle CPU registers).
+- May crash the target process if done wrong.
+
+### Method 3: `Frida` (Dynamic Instrumentation)
+
+[Frida](https://frida.re/) is a powerful hooking framework for Linux, Windows, macOS, and Android.
+
+**Install Frida:**
+
+```bash
+pip install frida-tools
+```
+
+**Write a Frida Script (`hook_puts.js`)**
+
+```js
+// hook_puts.js
+Interceptor.attach(Module.findExportByName("libc.so.6", "puts"), {
+    onEnter: function(args) {
+        console.log(`[Hooked! Original message: ${args[0].readCString()}]`);
+    },
+    onLeave: function(retval) {
+        retval.replace(0); // Modify return value
+    }
+});
+```
+
+**Inject into a Running Process**
+
+```bash
+frida -n "process_name" -l hook_puts.js
+frida -p <PID> -l hook_puts.js
+```
+
+
+**Advantages**
+
+- Works on **statically linked** binaries  
+- No recompilation needed  
+- Supports **Python/JS scripting**
+
+
+
+`dlfcn.h` provides functions to load and interact with **shared libraries** at **runtime** (not at compile time). This is **Dynamic Loading**, and it's controlled by the **Runtime Linker**.
+
+Functions provided by `dlfcn.h`
+
+- `dlopen()` : Loads a shared object (.so) file at runtime.
+- `dlsym()` : Get the address of a symbol (function/variable) from a loaded library.
+- `dlclose()` : Unloads the shared object.
+- `dlerror()` : Returns a human-readable error if other functions fail.
+
+Don't forget to **link with -ldl**.
+
+
+The  function  `dlopen()`  loads  the  dynamic shared object (shared library) file named by the null-terminated string filename and returns an opaque "handle" for the loaded object.
+
+One of the following two values must be included in flags:
+- `RTLD_LAZY`
+- `RTLD_NOW`
+
+Some other flags are:
+- `RTLD_GLOBAL` - Make symbols available for all future `dlopen()` calls
+- `RTLD_LOCAL` - Default-symbols are only available to current object
+
+The function `dlsym()` takes a "handle" of a dynamic loaded shared object returned by dlopen along with a null-terminated symbol name, and returns the address where that symbol is loaded into memory.
+
+
+```c
+#include <stdio.h>
+#include <dlfcn.h>
+
+int main() {
+    void *handle = dlopen("./libhello.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "dlopen error: %s\n", dlerror());
+        return 1;
+    }
+
+    void (*hello)() = dlsym(handle, "hello");
+    if (!hello) {
+        fprintf(stderr, "dlsym error: %s\n", dlerror());
+        return 1;
+    }
+
+    hello();  // Call the function from the .so file
+
+    dlclose(handle);
+    return 0;
+}
+
+```
+
+There are two special pseudo-handles that may be specified in *handle*:
+- `RTLD_DEFAULT`
+- `RTLD_NEXT`
+
+**RTLD_DEFAULT**
+
+```c
+dlsym(RTLD_DEFAULT, "malloc");
+```
+- It tells the linker:
+
+> "Find the **first occurrence** of `malloc` as if I hadn't overridden anything."
+
+- Searches **all loaded shared libraries**, including `libc`, and finds the first match.  
+- Good when you want to **call the real/original function** safely and globally.
+
+**RTLD_NEXT**
+
+```c
+dlsym(RTLD_NEXT, "malloc");
+```
+
+- It tells the linker:
+
+> “Give me the **next** definition of `malloc` **after me** in the symbol lookup order.”
+
+- Used when you’re writing a **wrapper** around a shared library function (e.g., malloc).  
+- Especially used in **LD_PRELOAD-based hook libraries**.
+
+Real-World Hooking Example: Intercept `malloc`
+
+```c
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+
+void* malloc(size_t size) {
+    static void* (*real_malloc)(size_t) = NULL;
+
+    if (!real_malloc) {
+        real_malloc = dlsym(RTLD_NEXT, "malloc");  // find real malloc
+    }
+
+    void* ptr = real_malloc(size);
+    printf("[HOOK] malloc(%zu) = %p\n", size, ptr);
+    return ptr;
+}
+
+```
+
+Compile and use:
+```bash
+gcc -fPIC -shared -o hookmalloc.so hookmalloc.c -ldl
+LD_PRELOAD=./hookmalloc.so ./your_binary
+```
+
+Internally:
+
+- `dlopen()` interacts with the **Runtime Linker (`ld.so`)**
+- `dlsym()` looks into the **Dynamic Symbol Table (`.dynsym`)** of the shared object
+- All this info comes from `.dynamic`, `.dynstr`, `.dynsym` ELF sections
+
+Let's revisit Comilation stages in C ;)
+
+**C Build Stages**
+
+When you write a simple C file like:
+
+```c
+#include <stdio.h>
+int main() {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+And compile with:
+
+```bash
+gcc hello.c -o hello
+```
+
+Here's what actually happens:
+
+
+| **Stage**         | **Tool** | **Description**                                                                |
+| ----------------- | -------- | ------------------------------------------------------------------------------ |
+| Preprocessing | `cpp`    | Expands `#include`, `#define`, macros, etc.                                    |
+| Compilation   | `cc1`    | Converts `.c` to `.s` (assembly)                                               |
+| Assembling    | `as`     | Converts `.s` to `.o` (object file)                                            |
+| Linking       | `ld`     | Combines your `.o` file with startup code and libraries into an ELF executable |
+
+**Startup Files (`crt1.o`, `crti.o`, `crtn.o`, etc.)**
+
+These are **C Runtime Startup (CRT)** object files. When you link a program, `gcc` secretly adds these to your link command.
+
+Here’s what’s involved:
+
+#### 1. `crt1.o` (or `Scrt1.o`)
+
+- Contains `_start`, the **entry point** of your program 
+- `_start` sets up the stack, arguments, environment, then calls `__libc_start_main`  
+
+#### 2. `crti.o`
+
+- Defines special ELF sections like `.init` and `.fini`
+- These sections are for **constructors and destructors**
+- Begins the `.init` section (for calling global constructors)
+
+#### 3. `crtn.o`
+
+- Ends the `.init` and `.fini` sections started by `crti.o`
+
+#### 4. `crtbegin.o` and `crtend.o`
+
+- Used by **GCC** to handle C++-style constructors/destructors via `__attribute__((constructor))`
+- Keeps track of constructor/destructor lists (.ctors, .dtors)
+
+
+
+**Typical Linking Order (in `gcc -v`)**
+
+```bash
+/usr/lib/x86_64-linux-gnu/crt1.o
+/usr/lib/x86_64-linux-gnu/crti.o
+crtbegin.o
+... your code ...
+crtend.o
+/usr/lib/x86_64-linux-gnu/crtn.o
+```
+
+So when you compile, **these files are linked** implicitly by GCC unless you disable them with `-nostartfiles` or `-nostdlib`.
+
+
+You can also dump the symbol table to see `_start`:
+
+```bash
+readelf -s /usr/lib/x86_64-linux-gnu/crt1.o | grep _start
+```
+
+
+```txt
+crt1.o    → defines _start
+crti.o    → starts .init section
+crtbegin.o → starts constructor list
+hello.o   → your compiled code
+crtend.o  → ends constructor list
+crtn.o    → ends .init section
+libc.so   → standard C library
+ld-linux.so → dynamic linker (for ELF interpreter)
+```
+
+```bash
+# 1. Preprocessing: Expand macros and includes
+gcc -E hello.c -o hello.i
+
+# 2. Compilation: Convert preprocessed code to assembly
+/usr/lib/gcc/x86_64-linux-gnu/11/cc1 hello.i -o hello.s
+
+# 3. Assembling: Convert assembly to object code
+as hello.s -o hello.o
+
+# 4. Linking manually
+ld \
+   -dynamic-linker /lib64/ld-linux-x86-64.so.2 \
+   -o hello \
+   /usr/lib/x86_64-linux-gnu/crt1.o \
+   /usr/lib/x86_64-linux-gnu/crti.o \
+   hello.o \
+   -L/usr/lib/x86_64-linux-gnu/ -lc \
+   /usr/lib/x86_64-linux-gnu/crtn.o
+
+```
+
+**TIP**
+
+Use `/lib64/ld-linux-x86-64.so.2` for 64-bit systems, and `/lib/ld-linux.so.2` for 32-bit.
+
+`-dynamic-linker` tells where the dynamic linker is (you can confirm it with `readelf -l /bin/ls | grep interpreter`)
+`-lc` links `libc.so`
+
