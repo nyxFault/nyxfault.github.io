@@ -35,16 +35,14 @@ This blog is structured for progressive learning. You can follow along chapter b
 6. **Virtual Memory of Process**  
 7. **Memory Allocation**  
 8. **Process Programming**  
-9. **Process Monitor**  
-10. **Advanced Process Programming**  
-11. **Signals**  
-12. **Threads**  
-13. **Thread Synchronization**  
-14. **IPC - Introduction**  
-15. **PIPES and FIFO - IPC**  
-16. **Message Queue**  
-17. **Semaphore**  
-18. **Shared Memory**  
+9.  **Signals**  
+10. **Threads**  
+11. **Thread Synchronization**  
+12. **IPC - Introduction**  
+13. **PIPES and FIFO - IPC**  
+14. **Message Queue**  
+15. **Semaphore**  
+16. **Shared Memory**  
 
 
 ## 📚 References

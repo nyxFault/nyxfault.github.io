@@ -1,145 +1,118 @@
 ---
-title: "PIPES and FIFO - IPC"
+title: "15. Semaphore"
 categories: [Linux, Programming]
 tags: [linux, sys-programming]
 ---
 
-## **1. Pipes**
+Semaphores are synchronization primitives used to control access to shared resources. We already know they are used to prevent race conditions.
 
-Pipes are one of the oldest and simplest IPC mechanisms in Unix-like systems. They provide a unidirectional (one-way) communication channel between two related processes (usually a parent and child).
+### System V vs POSIX Semaphores
 
-### **Types of Pipes**
+- **System V** (`semget`, `semop`)
+- **POSIX** (`sem_open`, `sem_wait`, `sem_post`)
 
-1. **Anonymous Pipes (`|` in shell)**
-    
-    - Created using the `pipe()` system call.
-    - Data flows in one direction (read end and write end).    
-    - Limited to communication between parent and child processes.
+A **semaphore** is essentially a **counter** that controls access to a shared resource:
 
-*Example*
+- It **blocks** a process if the resource isn't available.
+- It **signals** when the resource becomes available.
+
+
+Semaphores can be:
+
+- **Counting Semaphores:** Counter allows more than one process to access the resource (like connection pools).
+- **Binary Semaphores (Mutex):** Counter limited to 0 or 1, similar to a lock/unlock mechanism.
+
+#### Semaphore Operation Structure (`man semop`):
 
 ```c
-#include <unistd.h>
+struct sembuf {
+    unsigned short sem_num;  // Semaphore index
+    short sem_op;            // Operation (+1 = signal, -1 = wait)
+    short sem_flg;           // Operation flags (e.g., IPC_NOWAIT)
+};
+
+```
+
+In the following example we will solve our race condition problem we faced in [here](https://nyxfault.github.io/posts/sys-programming-12/#race-condition)
+
+```c
+#include <pthread.h>
 #include <stdio.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <stdlib.h>
 
-int main() {
-    int fd[2];
-    pipe(fd); // Creates a pipe
+union semun {
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+};
 
-    if (fork() == 0) { // Child process
-        close(fd[0]); // Close read end
-        write(fd[1], "Hello, parent!", 15);
-        close(fd[1]);
-    } else { // Parent process
-        close(fd[1]); // Close write end
-        char buf[20];
-        read(fd[0], buf, sizeof(buf));
-        printf("Received: %s\n", buf);
-        close(fd[0]);
+int counter = 0;
+int semid;
+
+// Semaphore wait (P operation)
+void sem_wait() {
+    struct sembuf sb = {0, -1, 0};
+    if (semop(semid, &sb, 1) == -1) {
+        perror("semop - wait");
+        exit(1);
     }
-    return 0;
 }
-```
 
+// Semaphore signal (V operation)
+void sem_signal() {
+    struct sembuf sb = {0, 1, 0};
+    if (semop(semid, &sb, 1) == -1) {
+        perror("semop - signal");
+        exit(1);
+    }
+}
 
-The `pipe()` system call creates a **unidirectional inter-process communication (IPC) channel** between two related processes (typically a parent and child). It provides two file descriptors:
-
-- `fd[0]` → Read end (for receiving data).
-- `fd[1]` → Write end (for sending data).
-
-**Syntax**
-
-```c
-#include <unistd.h>
-int pipe(int fd[2]);
-```
-
-- Returns `0` on success, `-1` on error.
-
-#### How It Works
-
-1. Data written to `fd[1]` can be read from `fd[0]`.
-2. If a process tries to read from an empty pipe, it **blocks** until data is available.
-3. If all write ends are closed, `read()` returns `0` (EOF).
-
-
-#### SIGPIPE 
-
- The `SIGPIPE` signal is sent to a process by the operating system when it attempts to **write to a pipe or socket that has no readers**. This typically happens when the reading end of a pipe is closed, but the writing process continues to send data.
- 
-2. **Named Pipes (FIFO)**
-   
-- Created using `mkfifo()` and exist as a filesystem entry.
-- Allows unrelated processes to communicate.
-
-*Example*
-
-```bash
-mkfifo mypipe
-# Process 1 writes to the pipe:
-echo "Hello" > mypipe
-# Process 2 reads from the pipe:
-cat < mypipe
-```
-
-Here is an example program (**sender**) writes data to the FIFO, and the other (**receiver**) reads it.
-
-*receiver*
-
-This program creates a FIFO (if it doesn't exist) and waits for data from the sender.
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#define FIFO_NAME "myfifo"
+void *increment_counter(void *arg) {
+    for (int i = 0; i < 100000; i++) {
+        sem_wait();       // Lock
+        counter++;        // Critical section
+        sem_signal();     // Unlock
+    }
+    return NULL;
+}
 
 int main() {
-    int fd;
-    char buf[100];
+    pthread_t thread1, thread2;
+    key_t key = ftok("semfile", 65);
 
-    // Create FIFO (named pipe) if it doesn't exist
-    mkfifo(FIFO_NAME, 0666);  // 0666 = Read/Write permissions
+    // Create semaphore
+    semid = semget(key, 1, 0666 | IPC_CREAT);
+    if (semid == -1) {
+        perror("semget");
+        exit(1);
+    }
 
-    printf("Waiting for sender...\n");
-    fd = open(FIFO_NAME, O_RDONLY);  // Open FIFO in read-only mode
-    read(fd, buf, sizeof(buf));      // Read data from FIFO
-    printf("Received: %s\n", buf);
+    // Initialize semaphore to 1
+    union semun arg;
+    arg.val = 1;
+    if (semctl(semid, 0, SETVAL, arg) == -1) {
+        perror("semctl");
+        exit(1);
+    }
 
-    close(fd);
-    unlink(FIFO_NAME);  // Remove FIFO when done
+    pthread_create(&thread1, NULL, increment_counter, NULL);
+    pthread_create(&thread2, NULL, increment_counter, NULL);
+
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+
+    printf("Final counter value: %d\n", counter);  // Correct: 200000
+
+    // Cleanup: remove semaphore
+    if (semctl(semid, 0, IPC_RMID) == -1) {
+        perror("semctl - IPC_RMID");
+        exit(1);
+    }
+
     return 0;
 }
+
 ```
 
-*sender*
-
-This program writes a message to the FIFO created by the receiver.
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#define FIFO_NAME "myfifo"
-
-int main() {
-    int fd;
-    char buf[] = "Hello from sender!";
-
-    // Open FIFO (wait if receiver hasn't created it yet)
-    fd = open(FIFO_NAME, O_WRONLY);  // Open FIFO in write-only mode
-    write(fd, buf, sizeof(buf));     // Write data to FIFO
-    printf("Message sent.\n");
-
-    close(fd);
-    return 0;
-}
-```

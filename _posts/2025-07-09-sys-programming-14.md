@@ -1,30 +1,40 @@
 ---
-title: "IPC - Introduction"
+title: "14. Message Queue"
 categories: [Linux, Programming]
 tags: [linux, sys-programming]
 ---
 
-Inter-Process Communication (IPC) refers to the mechanisms that allow processes to exchange data and synchronize their execution. In Linux, multiple processes often need to communicate—whether they are cooperating on a task, sharing resources, or coordinating work.
-
-Linux provides several IPC mechanisms, each with its own use cases, advantages, and trade-offs.
-
-## Types of IPC Mechanisms in Linux
-
-Linux provides multiple IPC techniques, which are generally divided into:
-
-- Communication IPCs: For exchanging data.
-- Synchronization IPCs: For coordinating process execution.
-
-Linux provides several IPC mechanisms, which can be broadly categorized as follows:
-
-|IPC Mechanism|Kernel Involvement|Communication Type|Synchronization Capability|
-|---|---|---|---|
-|**Pipes (Unnamed Pipes)**|Minimal (via file descriptors)|Unidirectional|No|
-|**Named Pipes (FIFOs)**|Minimal (via filesystem)|Unidirectional (bidirectional with care)|No|
-|**Message Queues**|Moderate (kernel-managed queue)|Bidirectional|Yes (ordering)|
-|**Shared Memory**|Moderate (shared address space)|Bidirectional|Needs external synchronization (e.g., semaphores)|
-|**Semaphores**|High (kernel-managed)|N/A|Yes (synchronization only)|
-|**Sockets**|High (network stack)|Bidirectional|Yes (explicit)|
-|**Signals**|Minimal|One-shot notification|Limited (basic notifications)|
+Message queues allow processes to exchange data in the form of messages. Unlike pipes, they support multiple readers/writers and preserve message boundaries. They allow processes to **send and receive messages** in a queue-like structure, with the kernel acting as the intermediary.
 
 
+- **System V Message Queues** (`msgget`, `msgsnd`, `msgrcv`)
+- **POSIX Message Queues** (`mq_open`, `mq_send`, `mq_receive`)
+
+*Example (Sys V)*
+
+```c
+#include <sys/msg.h>
+#include <stdio.h>
+
+struct msg_buffer {
+    long msg_type;
+    char msg_text[100];
+} message;
+
+int main() {
+    key_t key = ftok("progfile", 65);
+    int msgid = msgget(key, 0666 | IPC_CREAT);
+
+    // Send a message
+    message.msg_type = 1;
+    sprintf(message.msg_text, "Hello from sender");
+    msgsnd(msgid, &message, sizeof(message), 0);
+
+    // Receive a message
+    msgrcv(msgid, &message, sizeof(message), 1, 0);
+    printf("Received: %s\n", message.msg_text);
+
+    msgctl(msgid, IPC_RMID, NULL); // Cleanup
+    return 0;
+}
+```

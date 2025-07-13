@@ -1,5 +1,5 @@
 ---
-title: "File Operations"
+title: "3. File Operations"
 categories: [Linux, Programming]
 tags: [linux, sys-programming]
 mermaid: true

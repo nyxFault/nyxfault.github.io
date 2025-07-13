@@ -1,5 +1,5 @@
 ---
-title: "Memory Allocation"
+title: "7. Memory Allocation"
 categories: [Linux, Programming]
 tags: [linux, sys-programming]
 mermaid: true
