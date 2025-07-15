@@ -50,25 +50,26 @@ make menuconfig
 
 Before we compile the kernel, we need to enable some options for debug symbols, KASLR, and other useful features. 
 
-Kernel hacking --->
+**Kernel hacking ->**
 
-**[✔] Kernel debugging**  
-`CONFIG_DEBUG_KERNEL`
+- [x] **Kernel debugging**  
+  `CONFIG_DEBUG_KERNEL`
 
-**[✔] Compile the kernel with debug info**  
-`CONFIG_DEBUG_INFO`
+- [x] **Compile the kernel with debug info**  
+  `CONFIG_DEBUG_INFO`
 
-**[✔] Generate DWARF version 4 debugging information**  
-`CONFIG_DEBUG_INFO_DWARF4`
+- [x] **Generate DWARF version 4 debugging information**  
+  `CONFIG_DEBUG_INFO_DWARF4`
 
-**[✔] Enable GDB scripts** (if available)  
-`CONFIG_GDB_SCRIPTS`
+- [x] **Enable GDB scripts** *(if available)*  
+  `CONFIG_GDB_SCRIPTS`
 
-**[✔] Debug slab memory allocations**  
-`CONFIG_SLUB_DEBUG` or `CONFIG_DEBUG_SLAB`
+- [x] **Debug slab memory allocations**  
+  `CONFIG_SLUB_DEBUG` or `CONFIG_DEBUG_SLAB`
 
-**[✔] Export All Kernel Symbols**  
-`CONFIG_KALLSYMS` or `CONFIG_KALLSYMS_ALL`
+- [x] **Export All Kernel Symbols**  
+  `CONFIG_KALLSYMS` or `CONFIG_KALLSYMS_ALL`
+
 
 Check the `.config` file in a text editor and ensure these options are set:
 
