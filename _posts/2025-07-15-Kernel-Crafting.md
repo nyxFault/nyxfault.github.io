@@ -4,7 +4,7 @@ categories: [Lab]
 tags: [linux, kernel, debug, qemu]
 ---
 
-In this step-by-step tutorial, we’ll walk through the entire process of building a Linux kernel, creating a minimal filesystem using Busybox, running it on QEMU, and debugging the kernel. Finally, we’ll wrap up by learning how to compile and add custom Linux kernel modules to enhance our kernel. I’m using a Linux system for this demonstration, specifically **Ubuntu 22.04.5 LTS x86_64** with kernel version **5.11.4**. However, the steps should be similar for other Linux distributions. Let’s dive in!
+In this step-by-step tutorial, we’ll walk through the entire process of building a Linux kernel, creating a minimal filesystem using Busybox, running it on QEMU, and debugging the kernel. Finally, we’ll wrap up by learning how to compile and add custom Linux kernel modules to enhance our kernel. I’m using a Linux system for this demonstration, specifically **Ubuntu 22.04.5 LTS x86_64** with kernel version **6.8.0-60-generic**. However, the steps should be similar for other Linux distributions. Let’s dive in!
 
 
 
