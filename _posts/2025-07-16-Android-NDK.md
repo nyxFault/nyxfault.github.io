@@ -6,6 +6,13 @@ tags: [android, ndk]
 
 The Android Native Development Kit (NDK) is a toolset that allows you to implement parts of your Android app using native-code languages like C and C++. 
 
+You can download the NDK from the official [Android Developer website](https://developer.android.com/ndk/downloads) or via the command line on Linux using:
+
+```bash
+# sdkmanager --install "ndk;version"
+sudo sdkmanager --install "ndk;22.1.7171670"
+```
+
 ### Step 1: Set Up Project Structure
 
 Create a directory structure like this:
