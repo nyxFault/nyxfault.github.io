@@ -162,29 +162,34 @@ Actual data referred to by section headers. Common sections include:
 
 In ELF binaries, **section headers and unnecessary sections** like symbol tables, debug info, etc., can be **removed** or **stripped** to reduce the file size or obscure internal details.
 
-We can use the `objcopy` command from **binutils**:
+We can use the `strip` command from **binutils**:
 
 ```bash
+$ readelf --sections hello-world
+There are 31 section headers, starting at offset 0x36a0:
+
+Section Headers:
+#...
+# We can see we have 31 section headers
+
+$ ls -lh hello-world
+-rwxrwxr-x 1 fury fury 16K Jul 19 20:56 hello-world
+
+# Now let's remove unnecessary sections
+$ strip --strip-all hello-world
+$ ls -lh hello-world
+-rwxrwxr-x 1 fury fury 15K Jul 19 20:57 hello-world
+
+
+# As you can see size has been reduced
 $ readelf --sections hello-world
 There are 29 section headers, starting at offset 0x3148:
 
 Section Headers:
-  [Nr] Name              Type             Address           Offset
-       Size              EntSize          Flags  Link  Info  Align
-  [ 0]                   NULL             0000000000000000  00000000
-       0000000000000000  0000000000000000           0     0     0
-  [ 1] .interp           PROGBITS         0000000000000318  00000318
-       000000000000001c  0000000000000000   A       0     0     1
-
-# Now let's remove .interp section
-# objcopy --remove-section=<section_name> <ELF1> <ELF2>
-$ objcopy --remove-section=.interp hello-world stripped 
-
-$ readelf --sections stripped 
-There are 28 section headers, starting at offset 0x3140
-# We can see we have 28 section headers
+# We can see we have 29 section headers
 
 ```
+
 
 
 
