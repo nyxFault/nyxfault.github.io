@@ -164,6 +164,9 @@ url: "https://nyxfault.github.io"
 # The base URL of your site
 baseurl: ''
 
+plugins:
+  - jekyll-sitemap
+
 # ------------ The following options are not recommended to be modified ------------------
 
 kramdown:
