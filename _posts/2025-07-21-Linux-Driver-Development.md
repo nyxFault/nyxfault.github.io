@@ -6,12 +6,11 @@ tags: [linux, lkm, kernel, driver]
 
 ### Introduction
 
-In the previous [blog](http://nyxfault.github.io/posts/Linux-Kernel-Programming/), we explored the basics of Linux kernel module development. We also examined the fundamental differences between a Linux kernel module and a device driver, as well as the various types of drivers available in Linux.
+In the previous [blog](https://nyxfault.github.io/posts/Linux-Kernel-Programming/), we explored the basics of Linux kernel module development. We also examined the fundamental differences between a Linux kernel module and a device driver, as well as the various types of drivers available in Linux.
 
 In this article, we’ll build on that foundation and dive into Linux driver development, with a particular focus on creating a basic character device driver. Character drivers are one of the simplest and most common types of Linux drivers, making them an excellent starting point for understanding how drivers interact with user space and the kernel.
 
 Before diving into code, let’s revisit what exactly a Linux driver is and look at the different types of drivers.
-
 
 ### What is a Linux Driver?
 
@@ -51,7 +50,6 @@ Ensure you have the necessary tools and libraries installed. You typically need 
 ```bash
 $ sudo apt-get install build-essential linux-headers-$(uname -r)
 ```
-
 
 
 ## Anatomy of a Character Device Driver
