@@ -603,7 +603,6 @@ MODULE_AUTHOR("nyxFault");
 MODULE_DESCRIPTION("A simple character device driver with calculator IOCTLs");
 
 ```
-
 Compile the driver, insert the module and create device node. Give `RW` permissions to `/dev/my_char_device`.
 
 Now, let’s write a user-space program that will communicate with our character device using the IOCTL commands we defined (ADD, SUB, MUL, DIV). This program will send two numbers to the driver and receive the result for each operation.
