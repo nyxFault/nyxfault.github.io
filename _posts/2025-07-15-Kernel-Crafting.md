@@ -21,7 +21,7 @@ First, let’s download the Linux kernel source code. We’ll choose version 5.1
 
 
 ```bash
-wget  https://www.kernel.org/pub/linux/kernel/v5.x/linux-5.11.4.tar.xz
+wget https://www.kernel.org/pub/linux/kernel/v5.x/linux-5.11.4.tar.xz
 tar xvf linux-5.11.4.tar.xz
 cd linux-5.11.4/
 ```
@@ -150,25 +150,14 @@ busybox: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically li
 You now have a **statically linked BusyBox binary** — clean, minimal, and ready for use in your root filesystem (e.g. for QEMU, initramfs, or kernel debugging).
 
 
-**Step 2: Create the Root Filesystem Layout**
-
-Now we create the basic directory structure:
-
-```bash
-mkdir dev proc sys
-cp -r _install/* rootfs/
-```
-
-Create necessary device nodes:
-
-```bash
-sudo mknod -m 666 rootfs/dev/null c 1 3
-sudo mknod -m 666 rootfs/dev/console c 5 1
-```
-
-**Step 3: Add init Script**
+**Step 2: Add init Script**
 
 BusyBox looks for `/init` or `/sbin/init` as the first process (PID 1). Create a basic init script:
+
+```bash
+cd _install
+nano init
+```
 
 ```bash
 #!/bin/sh
@@ -223,12 +212,11 @@ We’ve completed the setup for our custom Linux system using Busybox and a cust
 - Mounting Essential Directories: In the `init` script, we mounted essential special directories such as `/dev`, `/proc`, and `/sys`. These directories provide access to kernel information and system devices.
 
 
-**Step 4: Create the initramfs**
+**Step 3: Create the initramfs**
 
 To create the filesystem (initramfs) containing our custom Linux system, we’ll run the following commands inside the `_install` directory:
 
 ```bash
-$ cd _install
 $ find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
 $ file ../initramfs.cpio.gz
 initramfs.cpio.gz: gzip compressed data
