@@ -48,7 +48,8 @@ Inside the kernel source, there are directories like `drivers/`, `fs/`, and `net
 
 **Create Directory & Kbuild**
 
-*NOTE*
+**NOTE**
+
 We will be using the same kernel that we built in the previous [blog](https://nyxfault.github.io/posts/Kernel-Crafting/).
 
 
