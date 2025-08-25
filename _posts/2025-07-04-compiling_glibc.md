@@ -60,16 +60,14 @@ After successful compilation, install the library:
 sudo make install
 ```
 
-
 6. Update Library Cache
 Update the dynamic linker run-time bindings:
-
-```
+```bash
 sudo ldconfig
 ```
 
 7. Linking Against Your Custom glibc
 To link your program with the specific glibc version, you need to specify the path to the glibc installation using the `-Wl`,`-rpath` and `-L` options:
-```sh
+```bash
 gcc -Wl,-rpath=/opt/glibc-2.31/lib -L/opt/glibc-2.31/lib -I/opt/glibc-2.31/include hello.c -o hello
 ```
