@@ -116,4 +116,4 @@ Compared to Cobalt Strike, Havoc is free and open source but less mature.
 
 A Beacon Object File is a **COFF object** that Beacon loads and calls at runtime. You write one function, `go`, which runs **in-process**, with **no CRT**, and only what you import or resolve yourself.
 
-You can checkout my blog on BOF Development [here](http://nyxfault.github.io/posts/BOF-Guide/)
+You can checkout my blog on BOF Development [here](https://nyxfault.github.io/posts/BOF-Guide/)
