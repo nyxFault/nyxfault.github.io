@@ -488,7 +488,7 @@ current_top = heap_address + 0x20
 # distance = (libc.address + 0x3afc10 - 0x20) - (heap_addr + 0x20)
 ```
 
-#### **Step 3: **Overwrite `__malloc_hook`**
+#### **Step 3: Overwrite `__malloc_hook`**
 
 The next allocation will return a pointer to `__malloc_hook`:
 
