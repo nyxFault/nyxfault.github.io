@@ -482,7 +482,7 @@ $ ./double_free.py NOASLR GDB
 
 After the double-free bypass, let's examine the fastbins in GDB:
 
-```python
+```bash
 # Then Break in GDB with `Ctrl + C`
 # Then view the fastbins
 pwndbg> fastbins 
