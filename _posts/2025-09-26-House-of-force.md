@@ -788,8 +788,6 @@ $ ./exp.py
 [*] Switching to interactive mode
 > size: $ whoami
 fury
-$ date
-Saturday 27 September 2025 03:01:38 PM IST
 ```
 
 ### Conclusion
