@@ -38,13 +38,13 @@ Normally, glibc has checks to prevent double-free, but these checks are incomple
 
 **DEMO**
 
-```python
-# Allocate three chunks
+```c
+// Allocate three chunks
 void *a = malloc(0x28); // Fastbin size chunk
 void *b = malloc(0x28); // Another fastbin size chunk
 void *c = malloc(0x28); // Third chunk
 
-# Free Chunk A twice
+// Free Chunk A twice
 free(a);
 free(b);
 free(a); // Double-free!
