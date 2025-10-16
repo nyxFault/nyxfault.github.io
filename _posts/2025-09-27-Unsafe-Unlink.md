@@ -360,6 +360,22 @@ We'll revise it again.
 }
 ```
 
+Following diagram illustrates how the unlink operation works:
+
+```mermaid
+flowchart TB
+    subgraph Before
+        BK1["BK"] <---> P1["P"] <---> FD1["FD"]
+    end
+    U["unlink P: set FD.bk = BK and BK.fd = FD"]
+    subgraph After
+        BK2["BK"] <---> FD2["FD"]
+    end
+    Before --> U --> After
+
+
+```
+
 ![unlink](https://tc.gts3.org/cs6265/2019/tut/img/heap/heap-unlink.svg)
 
 [*Source*](https://tc.gts3.org/cs6265/2019/tut/tut09-02-advheap.html)
