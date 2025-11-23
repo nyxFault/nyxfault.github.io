@@ -24,8 +24,6 @@ description: >- # used by seo meta and the atom feed
 github:
   username: nyxFault # change to your GitHub username
 
-twitter:
-  username: nyxfault # change to your Twitter username
 
 social:
   # Change to your full name.
@@ -34,7 +32,6 @@ social:
   # email: example@domain.com # change to your email address
   links:
     # The first element serves as the copyright owner's link
-    - https://x.com/nyxfault # change to your Twitter homepage
     - https://github.com/nyxFault # change to your GitHub homepage
     # Uncomment below to add more social links
     # - https://www.facebook.com/username

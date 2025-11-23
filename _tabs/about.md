@@ -42,7 +42,6 @@ While studying, I often take notes to better understand things. Now, I’ve deci
 
 Follow me on:
 - [GitHub](https://github.com/{{ site.github.username }})
-- [Twitter](https://x.com/{{ site.twitter.username }})
 
 <script src="https://giscus.app/client.js"
         data-repo="nyxFault/nyxfault.github.io"
