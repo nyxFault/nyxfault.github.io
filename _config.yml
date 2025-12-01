@@ -158,6 +158,9 @@ paginate: 10
 # E.g. 'https://username.github.io', note that it does not end with a '/'.
 url: "https://nyxfault.github.io"
 
+plugins:
+  - jekyll-sitemap
+  
 # The base URL of your site
 baseurl: ''
 

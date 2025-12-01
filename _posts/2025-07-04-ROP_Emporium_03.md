@@ -1,7 +1,7 @@
 ---
 title: "ROP Emporium - callme"
 categories: [Binary, Exploitation]
-tags: [x86, x86_64, ARMv5, ARM, MIPS, callme]
+tags: [x86, x86-64, ARMv5, ARM, MIPS]
 ---
 
 Welcome back, fellow hackers! In today’s post, we’ll dive into solving the **“callme”** challenge from the amazing **ROP Emporium** series.

@@ -1,7 +1,7 @@
 ---
 title: "ROP Emporium - split"
 categories: [Binary, Exploitation]
-tags: [x86, x86_64, ARMv5, ARM, MIPS, split]
+tags: [x86, x86-64, ARMv5, ARM, MIPS]
 
 ---
 
