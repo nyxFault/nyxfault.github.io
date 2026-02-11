@@ -494,7 +494,8 @@ This:
 - Copies the native UTF-8 buffer into the JVM heap
 - Returns a `jstring`
 
-The source code for the app you can find [here]()
+The source code for the app you can find [here](https://github.com/nyxFault/Base64_JNI)
+
 ### Revision
 
 #### Primitive Type Mappings
