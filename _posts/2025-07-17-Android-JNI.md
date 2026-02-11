@@ -520,6 +520,7 @@ These map directly — no manual marshalling required.
 | ------------- | --------- | --------- | --------------------- |
 | Java → Native | `String`  | `jstring` | `GetStringUTFChars()` |
 | Native → Java | `char*`   | `jstring` | `NewStringUTF()`      |
+
 *Example*
 
 ```c
