@@ -1,6 +1,6 @@
 ---
 title: "Fuzzing Dynamically Linked Code"
-categories: [Fuzzing]
+categories: [Fuzzing, AFL++]
 tags: [fuzzing, afl++, afl-fuzz]
 mermaid: true
 ---
