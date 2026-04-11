@@ -276,6 +276,131 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
+/* Rotating corner light on buttons / button-like controls */
+@property --cyber-btn-glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes cyber-btn-border-chase {
+  to {
+    --cyber-btn-glow-angle: 360deg;
+  }
+}
+
+@mixin cyber-button-corner-glow {
+  button:not([disabled]),
+  .btn:not(.disabled):not([disabled]),
+  a.btn:not(.disabled),
+  .page-item:not(.disabled) a.page-link,
+  #back-to-top {
+    position: relative;
+    isolation: isolate;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: conic-gradient(
+        from var(--cyber-btn-glow-angle),
+        transparent 0deg,
+        transparent 48deg,
+        var(--link-color) 108deg,
+        rgb(255 255 255 / 22%) 162deg,
+        var(--link-color) 216deg,
+        transparent 288deg,
+        transparent 360deg
+      );
+      -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    &:hover::before,
+    &:focus-visible::before {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    button:not([disabled]):hover::before,
+    button:not([disabled]):focus-visible::before,
+    .btn:not(.disabled):not([disabled]):hover::before,
+    .btn:not(.disabled):not([disabled]):focus-visible::before,
+    a.btn:not(.disabled):hover::before,
+    a.btn:not(.disabled):focus-visible::before,
+    .page-item:not(.disabled) a.page-link:hover::before,
+    .page-item:not(.disabled) a.page-link:focus-visible::before,
+    #back-to-top:hover::before,
+    #back-to-top:focus-visible::before {
+      animation: cyber-btn-border-chase 2.4s linear infinite;
+    }
+  }
+}
+
+@include cyber-button-corner-glow;
+
+/* Sidebar nav: one-shot scan sweep on click (class from sidebar-nav-click.js) */
+@keyframes cyber-nav-scan-sweep {
+  0% {
+    opacity: 0.4;
+    transform: translateX(-45%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(280%);
+  }
+}
+
+#sidebar nav ul li.nav-item > a.nav-link {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--link-color) 50%,
+      transparent 100%
+    );
+    transform: translateX(-50%);
+  }
+
+  > i,
+  > span {
+    position: relative;
+    z-index: 1;
+  }
+
+  &.cyber-nav-sweep::after {
+    animation: cyber-nav-scan-sweep 0.4s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  }
+}
+
 #cyber-particles-canvas {
   position: fixed;
   inset: 0;
