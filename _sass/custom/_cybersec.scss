@@ -276,6 +276,17 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
+/* Chirpy .content a:hover applies %link-hover (#d2603a) to all links; tag chips sit in .content and looked wrong */
+#tags a.tag:hover,
+#tags a.tag:focus-visible,
+.content a.tag:hover,
+.content a.tag:focus-visible,
+.content a.post-tag:hover,
+.content a.post-tag:focus-visible {
+  color: var(--link-color) !important;
+  border-bottom: none !important;
+}
+
 /* Rotating corner light on buttons / button-like controls */
 @property --cyber-btn-glow-angle {
   syntax: '<angle>';
@@ -290,15 +301,20 @@ button:focus-visible,
 }
 
 @mixin cyber-button-corner-glow {
+  /* ::after (not ::before): Chirpy uses .post-navigation .btn::before for prev/next labels; .post-preview uses ::before for hover tint */
   button:not([disabled]),
   .btn:not(.disabled):not([disabled]),
   a.btn:not(.disabled),
+  a.post-tag,
+  #sidebar .sidebar-bottom > a[href],
+  #post-list .post-preview,
+  #tags a.tag,
   .page-item:not(.disabled) a.page-link,
   #back-to-top {
     position: relative;
     isolation: isolate;
 
-    &::before {
+    &::after {
       content: '';
       position: absolute;
       inset: 0;
@@ -328,23 +344,31 @@ button:focus-visible,
       z-index: 0;
     }
 
-    &:hover::before,
-    &:focus-visible::before {
+    &:hover::after,
+    &:focus-visible::after {
       opacity: 1;
     }
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    button:not([disabled]):hover::before,
-    button:not([disabled]):focus-visible::before,
-    .btn:not(.disabled):not([disabled]):hover::before,
-    .btn:not(.disabled):not([disabled]):focus-visible::before,
-    a.btn:not(.disabled):hover::before,
-    a.btn:not(.disabled):focus-visible::before,
-    .page-item:not(.disabled) a.page-link:hover::before,
-    .page-item:not(.disabled) a.page-link:focus-visible::before,
-    #back-to-top:hover::before,
-    #back-to-top:focus-visible::before {
+    button:not([disabled]):hover::after,
+    button:not([disabled]):focus-visible::after,
+    .btn:not(.disabled):not([disabled]):hover::after,
+    .btn:not(.disabled):not([disabled]):focus-visible::after,
+    a.btn:not(.disabled):hover::after,
+    a.btn:not(.disabled):focus-visible::after,
+    a.post-tag:hover::after,
+    a.post-tag:focus-visible::after,
+    #sidebar .sidebar-bottom > a[href]:hover::after,
+    #sidebar .sidebar-bottom > a[href]:focus-visible::after,
+    #post-list .post-preview:hover::after,
+    #post-list .post-preview:focus-visible::after,
+    #tags a.tag:hover::after,
+    #tags a.tag:focus-visible::after,
+    .page-item:not(.disabled) a.page-link:hover::after,
+    .page-item:not(.disabled) a.page-link:focus-visible::after,
+    #back-to-top:hover::after,
+    #back-to-top:focus-visible::after {
       animation: cyber-btn-border-chase 2.4s linear infinite;
     }
   }
