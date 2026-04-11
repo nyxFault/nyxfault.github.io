@@ -269,6 +269,39 @@ main {
   }
 }
 
+/* Mobile / narrow viewports: fixed background breaks iOS Safari; flex rows need min-width 0 to avoid overflow */
+@media (max-width: 991.98px) {
+  @media (prefers-color-scheme: dark) {
+    html:not([data-mode]) body,
+    html[data-mode='dark'] body {
+      background-attachment: scroll;
+    }
+  }
+
+  @media (prefers-color-scheme: light) {
+    html[data-mode='dark'] body {
+      background-attachment: scroll;
+    }
+  }
+
+  html {
+    overflow-x: hidden;
+  }
+
+  #main-wrapper {
+    min-width: 0;
+    width: 100%;
+  }
+
+  #main-wrapper > .container {
+    min-width: 0;
+  }
+
+  #main-wrapper main {
+    min-width: 0;
+  }
+}
+
 a:focus-visible,
 button:focus-visible,
 .form-control:focus-visible {
