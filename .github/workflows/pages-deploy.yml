@@ -61,6 +61,19 @@ jobs:
         with:
           path: "_site${{ steps.pages.outputs.base_path }}"
 
+      # One URL per line for IndexNow (https://www.indexnow.org/)
+      - name: Extract URLs for IndexNow
+        run: |
+          SITE="_site${{ steps.pages.outputs.base_path }}"
+          grep -oP '(?<=<loc>)[^<]+' "$SITE/sitemap.xml" > indexnow-urls.txt
+          wc -l indexnow-urls.txt
+
+      - name: Upload IndexNow URL list
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexnow-urls
+          path: indexnow-urls.txt
+
   deploy:
     environment:
       name: github-pages
@@ -71,3 +84,70 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Ping Bing and other IndexNow partners after deploy. Key file: /indexnow-key.txt (see https://www.indexnow.org/)
+  indexnow:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download IndexNow URL list
+        uses: actions/download-artifact@v4
+        with:
+          name: indexnow-urls
+
+      - name: Ping IndexNow
+        continue-on-error: true
+        env:
+          SITE_HOST: nyxfault.github.io
+        run: |
+          set -euo pipefail
+          if [ ! -f indexnow-key.txt ]; then
+            echo "No indexnow-key.txt — skipping IndexNow."
+            exit 0
+          fi
+          echo "Waiting for Pages CDN before IndexNow submit…"
+          sleep 45
+          python3 << 'PY'
+          import json
+          import sys
+          try:
+              with open("indexnow-key.txt", encoding="utf-8") as f:
+                  key = f.read().strip()
+          except OSError:
+              sys.exit(0)
+          if not key:
+              sys.exit(0)
+          with open("indexnow-urls.txt", encoding="utf-8") as f:
+              urls = [line.strip() for line in f if line.strip()]
+          if not urls:
+              sys.exit(0)
+          host = "nyxfault.github.io"
+          payload = {
+              "host": host,
+              "key": key,
+              "keyLocation": f"https://{host}/indexnow-key.txt",
+              "urlList": urls[:10000],
+          }
+          with open("body.json", "w", encoding="utf-8") as fp:
+              json.dump(payload, fp, ensure_ascii=False)
+          PY
+          if [ ! -f body.json ]; then
+            echo "Nothing to submit (empty key or no URLs)."
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5; do
+            HTTP=$(curl -sS -o /tmp/indexnow_resp -w "%{http_code}" -X POST "https://api.indexnow.org/indexnow" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              -d @body.json) || HTTP="000"
+            echo "IndexNow HTTP ${HTTP} (attempt ${attempt})"
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+              cat /tmp/indexnow_resp || true
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "IndexNow did not return 200/202. Ensure https://${SITE_HOST}/indexnow-key.txt is reachable (same key as in file)."
+          exit 1
