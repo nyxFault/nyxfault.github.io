@@ -192,8 +192,6 @@ When this prints `BinExport`, you’re good.
 ---
 
 
-## Why it does not ask save location
-
 This plugin build writes output non-interactively (no save dialog).
 
 Example log:

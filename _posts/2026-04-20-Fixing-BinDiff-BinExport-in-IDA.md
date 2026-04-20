@@ -65,8 +65,6 @@ Simple rule: if you use IDA 64-bit, avoid mixing random old `*_ida.so` files fro
 
 I used source build because prebuilt plugin was clearly mismatched.
 
-Clone command pattern (template + real):
-
 ```bash
 git clone https://github.com/google/binexport.git /tmp/binexport-src
 cd /tmp/binexport-src
