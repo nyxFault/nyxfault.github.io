@@ -40,6 +40,179 @@ With KASAN and hardened usercopy you tend to see either a sanitizer report or `_
 
 ---
 
+## Full vulnerable module code
+
+Readers asked for the actual source so they can follow along without guessing. This is the full `drivers/misc/dvkm.c` used in the demo kernel:
+
+```c
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Damn Vulnerable Kernel Module (DVKM)
+ *
+ * Intentionally unsafe code for security research / fuzzing demos only.
+ * Do not enable in production kernels.
+ */
+
+#include <linux/fs.h>
+#include <linux/miscdevice.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
+#include <uapi/linux/dvkm.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("syzkaller demo");
+MODULE_DESCRIPTION("Damn Vulnerable Kernel Module (intentional bugs for fuzzing demos)");
+
+static char dvkm_stack_buf[128];
+
+/* Global state for the UAF demo (intentionally racy / unsafe). */
+static char *dvkm_uaf_buf;
+
+static long dvkm_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	void __user *uarg = (void __user *)arg;
+
+	switch (cmd) {
+	case DVKM_IOCTL_HEAP_OVERFLOW: {
+		struct dvkm_heap_overflow h;
+		char *buf;
+
+		if (copy_from_user(&h, uarg, sizeof(h)))
+			return -EFAULT;
+
+		/*
+		 * BUG: allocation size is fixed but copy length is user-controlled.
+		 * Triggers KASAN: slab-out-of-bounds when len > 32.
+		 */
+		buf = kmalloc(32, GFP_KERNEL);
+		if (!buf)
+			return -ENOMEM;
+		if (copy_from_user(buf, u64_to_user_ptr(h.user_ptr), h.len)) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		kfree(buf);
+		return 0;
+	}
+	case DVKM_IOCTL_STACK_OVERFLOW: {
+		struct dvkm_stack_overflow s;
+
+		if (copy_from_user(&s, uarg, sizeof(s)))
+			return -EFAULT;
+
+		/*
+		 * BUG: stack buffer is 128 bytes; len is unchecked.
+		 * Triggers KASAN: stack-out-of-bounds.
+		 */
+		if (copy_from_user(dvkm_stack_buf, u64_to_user_ptr(s.user_ptr), s.len))
+			return -EFAULT;
+		return 0;
+	}
+	case DVKM_IOCTL_UAF: {
+		__u32 op;
+
+		if (copy_from_user(&op, uarg, sizeof(op)))
+			return -EFAULT;
+
+		switch (op) {
+		case DVKM_UAF_ALLOC:
+			kfree(dvkm_uaf_buf);
+			dvkm_uaf_buf = kmalloc(64, GFP_KERNEL);
+			return dvkm_uaf_buf ? 0 : -ENOMEM;
+		case DVKM_UAF_FREE:
+			kfree(dvkm_uaf_buf);
+			/* BUG: dangling pointer not cleared — classic UAF pattern. */
+			return 0;
+		case DVKM_UAF_USE:
+			/*
+			 * BUG: write through freed pointer.
+			 * Triggers KASAN: use-after-free.
+			 */
+			if (dvkm_uaf_buf)
+				dvkm_uaf_buf[0] = 0x41;
+			return 0;
+		default:
+			return -EINVAL;
+		}
+	}
+	default:
+		return -ENOTTY;
+	}
+}
+
+static const struct file_operations dvkm_fops = {
+	.owner = THIS_MODULE,
+	.unlocked_ioctl = dvkm_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = dvkm_ioctl,
+#endif
+};
+
+static struct miscdevice dvkm_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "dvkm",
+	.mode = 0666,
+	.fops = &dvkm_fops,
+};
+
+static int __init dvkm_init(void)
+{
+	return misc_register(&dvkm_misc);
+}
+
+static void __exit dvkm_exit(void)
+{
+	misc_deregister(&dvkm_misc);
+	kfree(dvkm_uaf_buf);
+}
+
+module_init(dvkm_init);
+module_exit(dvkm_exit);
+```
+
+And for completeness, the UAPI used by both userspace and syzlang lives at `include/uapi/linux/dvkm.h`:
+
+```c
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+#ifndef _UAPI_LINUX_DVKM_H
+#define _UAPI_LINUX_DVKM_H
+
+#include <linux/types.h>
+#include <linux/ioctl.h>
+
+/*
+ * Damn Vulnerable Kernel Module — UAPI for fuzzing demos only.
+ * This interface exists solely to exercise bug-finding tools; it is not safe.
+ */
+
+#define DVKM_IOC_MAGIC 0xD8
+
+struct dvkm_heap_overflow {
+	__u64 user_ptr;
+	__u32 len;
+} __attribute__((packed));
+
+struct dvkm_stack_overflow {
+	__u64 user_ptr;
+	__u32 len;
+} __attribute__((packed));
+
+#define DVKM_IOCTL_HEAP_OVERFLOW _IOWR(DVKM_IOC_MAGIC, 1, struct dvkm_heap_overflow)
+#define DVKM_IOCTL_STACK_OVERFLOW _IOWR(DVKM_IOC_MAGIC, 2, struct dvkm_stack_overflow)
+#define DVKM_IOCTL_UAF _IOW(DVKM_IOC_MAGIC, 3, __u32)
+
+enum dvkm_uaf_op {
+	DVKM_UAF_ALLOC = 0,
+	DVKM_UAF_FREE = 1,
+	DVKM_UAF_USE = 2,
+};
+
+#endif /* _UAPI_LINUX_DVKM_H */
+```
+
+---
+
 ## UAPI header
 
 Ioctl commands use `_IOWR` / `_IOW`. Structs are packed so the size baked into the ioctl number matches what userspace and the fuzzer send:
