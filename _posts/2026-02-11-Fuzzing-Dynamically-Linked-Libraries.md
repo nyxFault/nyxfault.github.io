@@ -5,7 +5,7 @@ tags: [fuzzing, afl++, afl-fuzz]
 mermaid: true
 ---
 
-Hey everyone — apologies for the delayed post. I got caught up with a few things and couldn’t publish as planned. Thanks for your patience and continued support.
+Hey everyone! apologies for the delayed post. I got caught up with a few things and couldn’t publish as planned. Thanks for your patience and continued support.
 
 Wishing you all a Happy New Year! 🎉 Looking forward to sharing more technical content and deep dives with you this year.
 

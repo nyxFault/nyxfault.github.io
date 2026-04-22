@@ -50,6 +50,40 @@ jobs:
         env:
           JEKYLL_ENV: "production"
 
+      - name: Validate sitemap.xml
+        run: |
+          python3 << 'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          site_dir = Path("_site${{ steps.pages.outputs.base_path }}")
+          sitemap = site_dir / "sitemap.xml"
+
+          if not sitemap.exists():
+            print(f"ERROR: Missing sitemap: {sitemap}")
+            sys.exit(1)
+
+          content = sitemap.read_text(encoding="utf-8")
+          if not content.strip():
+            print("ERROR: sitemap.xml is empty")
+            sys.exit(1)
+
+          try:
+            root = ET.fromstring(content)
+          except ET.ParseError as exc:
+            print(f"ERROR: Invalid XML in sitemap.xml: {exc}")
+            sys.exit(1)
+
+          ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+          loc_count = len(root.findall(".//sm:loc", ns))
+          if loc_count == 0:
+            print("ERROR: sitemap.xml has no <loc> entries")
+            sys.exit(1)
+
+          print(f"OK: sitemap.xml valid with {loc_count} URL entries")
+          PY
+
       - name: Test site
         run: |
           bundle exec htmlproofer _site \

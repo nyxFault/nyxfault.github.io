@@ -1,0 +1,155 @@
+
+
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>https://nyxfault.github.io/</id>
+  <title>nyxFault</title>
+  <subtitle>Welcome to my blog dedicated to cybersecurity, reverse engineering, and technical explorations of low-level systems.</subtitle>
+  <updated>2026-04-21T22:30:22-04:00</updated>
+  <author>
+    <name>nyxfault</name>
+    <uri>https://nyxfault.github.io/</uri>
+  </author>
+  <link rel="self" type="application/atom+xml" href="https://nyxfault.github.io/feed.xml"/>
+  <link rel="alternate" type="text/html" hreflang="en"
+    href="https://nyxfault.github.io/"/>
+  <generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator>
+  <rights> © 2026 nyxfault </rights>
+  <icon>/assets/img/favicons/favicon.ico</icon>
+  <logo>/assets/img/favicons/favicon-96x96.png</logo>
+
+
+  
+  <entry>
+    <title>How I Fixed BinDiff and BinExport in IDA Pro</title>
+    <link href="https://nyxfault.github.io/posts/Fixing-BinDiff-BinExport-in-IDA/" rel="alternate" type="text/html" title="How I Fixed BinDiff and BinExport in IDA Pro" />
+    <published>2026-04-20T00:00:00-04:00</published>
+  
+    <updated>2026-04-20T14:26:50-04:00</updated>
+  
+    <id>https://nyxfault.github.io/posts/Fixing-BinDiff-BinExport-in-IDA/</id>
+    <content type="text/html" src="https://nyxfault.github.io/posts/Fixing-BinDiff-BinExport-in-IDA/" />
+    <author>
+      <name>nyxfault</name>
+    </author>
+
+  
+    
+    <category term="Reversing" />
+    
+    <category term="IDA" />
+    
+  
+
+  <summary>I ran into this in IDA:  dlopen(.../bindiff8_ida.so): undefined symbol: root_node dlopen(.../binexport12_ida.so): undefined symbol: root_node   Both plugins were present, but they were not built for my local IDA setup. This post is exactly how I fixed it.  I wanted this workflow:     IDA opens with no plugin load errors   BinExport works in ida64   BinDiff plugin also loads in ida64       What ...</summary>
+
+  </entry>
+
+  
+  <entry>
+    <title>How I Built BinExport for Binary Ninja (and Made It Actually Work)</title>
+    <link href="https://nyxfault.github.io/posts/Building-BinExport-for-Binary-Ninja/" rel="alternate" type="text/html" title="How I Built BinExport for Binary Ninja (and Made It Actually Work)" />
+    <published>2026-04-20T00:00:00-04:00</published>
+  
+    <updated>2026-04-20T14:26:50-04:00</updated>
+  
+    <id>https://nyxfault.github.io/posts/Building-BinExport-for-Binary-Ninja/</id>
+    <content type="text/html" src="https://nyxfault.github.io/posts/Building-BinExport-for-Binary-Ninja/" />
+    <author>
+      <name>nyxfault</name>
+    </author>
+
+  
+    
+    <category term="Reversing" />
+    
+    <category term="Binary Ninja" />
+    
+  
+
+  <summary>I wanted a clean BinDiff workflow from Binary Ninja, which means one thing first: get reliable .BinExport files out of Binja.  I thought this would take 5 minutes. It did not.  I hit multiple issues:     debugger plugin missing library   BinExport plugin not showing in menu   ABI mismatch errors   one build that loaded but crashed when I clicked BinExport   This post is the exact path I used, i...</summary>
+
+  </entry>
+
+  
+  <entry>
+    <title>Syzkaller Part 2: A Damn Vulnerable Kernel Module, Syzlang, and the Full Demo Pipeline</title>
+    <link href="https://nyxfault.github.io/posts/Syzkaller-DVKM-Demo/" rel="alternate" type="text/html" title="Syzkaller Part 2: A Damn Vulnerable Kernel Module, Syzlang, and the Full Demo Pipeline" />
+    <published>2026-04-19T00:00:00-04:00</published>
+  
+    <updated>2026-04-20T10:57:32-04:00</updated>
+  
+    <id>https://nyxfault.github.io/posts/Syzkaller-DVKM-Demo/</id>
+    <content type="text/html" src="https://nyxfault.github.io/posts/Syzkaller-DVKM-Demo/" />
+    <author>
+      <name>nyxfault</name>
+    </author>
+
+  
+    
+    <category term="Fuzzing" />
+    
+    <category term="Syzkaller" />
+    
+    <category term="Kernel" />
+    
+  
+
+  <summary>Part 2 of the Syzkaller writeup. Part 1 covered layout, install, and building a fuzzable 6.19 kernel for QEMU. Here I bolt on a deliberately broken driver, wire syzkaller to it with syzlang, run the manager, and follow crashes into reproducers and a tiny hand-written C program.  Lab and education only. Do not paste this into a product kernel unless you enjoy incident response.      Pieces on th...</summary>
+
+  </entry>
+
+  
+  <entry>
+    <title>Fuzzing from Scratch with libFuzzer</title>
+    <link href="https://nyxfault.github.io/posts/LibFuzzer-From-Scratch/" rel="alternate" type="text/html" title="Fuzzing from Scratch with libFuzzer" />
+    <published>2026-04-12T00:00:00-04:00</published>
+  
+    <updated>2026-04-12T00:00:00-04:00</updated>
+  
+    <id>https://nyxfault.github.io/posts/LibFuzzer-From-Scratch/</id>
+    <content type="text/html" src="https://nyxfault.github.io/posts/LibFuzzer-From-Scratch/" />
+    <author>
+      <name>nyxfault</name>
+    </author>
+
+  
+    
+    <category term="Fuzzing" />
+    
+    <category term="LLVM" />
+    
+  
+
+  <summary>What libFuzzer is  libFuzzer is LLVM’s in-process, coverage-guided fuzzer. You compile your target with the fuzzer runtime (-fsanitize=fuzzer), implement a single callback LLVMFuzzerTestOneInput(const uint8_t *data, size_t size), and the engine feeds your code mutated byte buffers at high speed. Instrumentation records which edges of the control-flow graph execute; inputs that reach new coverag...</summary>
+
+  </entry>
+
+  
+  <entry>
+    <title>JNIAtlas: Bridging APKs and Native Code in Binary Ninja</title>
+    <link href="https://nyxfault.github.io/posts/JNIAtlas-Binary-Ninja/" rel="alternate" type="text/html" title="JNIAtlas: Bridging APKs and Native Code in Binary Ninja" />
+    <published>2026-04-11T00:00:00-04:00</published>
+  
+    <updated>2026-04-11T00:00:00-04:00</updated>
+  
+    <id>https://nyxfault.github.io/posts/JNIAtlas-Binary-Ninja/</id>
+    <content type="text/html" src="https://nyxfault.github.io/posts/JNIAtlas-Binary-Ninja/" />
+    <author>
+      <name>nyxfault</name>
+    </author>
+
+  
+    
+    <category term="Android" />
+    
+    <category term="Reversing" />
+    
+  
+
+  <summary>When you open an Android .so in a disassembler, JNI entry points show up as long, mangled symbols: Java_com_example_app_MainActivity_stringFromJNI. The real story lives in the DEX: class name, method name, Java parameter types, and whether the method is static. Without that link, you are guessing argument types and renaming by hand.  JNIAtlas is a Binary Ninja plugin that closes that gap. It is...</summary>
+
+  </entry>
+
+</feed>
+
+
